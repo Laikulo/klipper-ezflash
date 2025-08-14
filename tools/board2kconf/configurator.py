@@ -105,14 +105,14 @@ class Configurator(object):
 
     def set_interface(self, interface: BoardInterfaceDefinition):
         if interface.if_type == "USB":
-            if not interface.pins.keys:
+            if not interface.pins:
                 self._get_comms_choice().select(prompt='USB')
             else:
                 self._get_comms_choice().select(prompt=f'USB (on {interface.pins['dp']}/{interface.pins['dm']})')
         elif interface.if_type == "CAN":
-            if 'CAN bus' in self._get_comms_choice().values():
+            if 'CAN bus' in self._get_comms_choice().prompts():
                 self._get_comms_choice().select(prompt='CAN bus')
-                if (rx_sym := self.kconfig.symbol(name="CAN RX gpio number")) and (tx_sym := self.kconfig.symbol(name="CAN TX gpio number")):
+                if (rx_sym := self.kconfig.symbol(prompt="CAN RX gpio number")) and (tx_sym := self.kconfig.symbol(prompt="CAN TX gpio number")):
                     rx_sym.set(interface.pins['rx'])
                     tx_sym.set(interface.pins['tx'])
                 else:

@@ -81,6 +81,16 @@ class KConfigChoice(object):
     def values(self) -> List[str]:
         return [x.name for x in self._choice.syms]
 
+    def prompts(self) -> List[str]:
+        return [self._get_prompt(x) for x in self._choice.syms]
+
+    @staticmethod
+    def _get_prompt(sym):
+        try:
+            return sym.nodes[0].prompt[0]
+        except IndexError:
+            return f"Unnamed {sym.name}"
+
     def choices(self) -> List[KCLSymbol]:
         return self._choice.syms
 

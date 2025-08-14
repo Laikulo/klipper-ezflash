@@ -1,4 +1,5 @@
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -16,31 +17,47 @@ def main():
     board_defs = BoardDefinition.get_all_from_file(
         Path(__file__).parent.parent.parent / 'board' / 'v1' / 'example.json',
     )
-    my_board = [ d for d in board_defs if d.manufacturer == "BTT" and d.model == "Octopus" and d.variant == "Octopus-F446"][0]
-    # my_board = [ d for d in board_defs if d.manufacturer == "Mellow3D" and d.model == "Fly LIS2DW" and d.variant == "Fly LIS2DW"][0]
+    failed_boards = []
+    failed_interfaces = []
 
-    config = Configurator(
-        (Path(__file__).parent.parent.parent / 'test_resources' / 'kconfig' ),
-        my_board
-    )
+    for board in board_defs:
+        pp(board, stream=sys.stderr)
+        try:
+            config = Configurator(
+                (Path(__file__).parent.parent.parent / 'test_resources' / 'kconfig' ),
+                board
+            )
 
-    config.set_arch(my_board.mcu.arch)
-    config.set_mcu(my_board.mcu.mcu)
-    if clock := my_board.mcu.clock:
-        config.set_freq(clock)
+            config.set_arch(board.mcu.arch)
+            config.set_mcu(board.mcu.mcu)
+            if clock := board.mcu.clock:
+                config.set_freq(clock)
 
-    # Note: we don't want to set flash type if we don't have a "stage 2". Which we don't have if there is a bootloader.
-    # RP2040 specifically
-    if flash := my_board.mcu.flash:
-        config.set_flash(flash)
+            # Note: we don't want to set flash type if we don't have a "stage 2". Which we don't have if there is a bootloader.
+            # RP2040 specifically
+            if flash := board.mcu.flash:
+                config.set_flash(flash)
 
-    pp(my_board)
-    pp(config.get_interfaces())
-    pp(config.supports_canbridge())
+            for i in config.get_interfaces():
+                pp(i, stream=sys.stderr)
+                try:
+                    config.set_interface(i)
+                except Exception as e:
+                    logger.exception("Failed to set interface")
+                    failed_interfaces.append(f"{board.manufacturer}/{board.model}/{board.variant}/{i.if_type}: {e!r}")
+                    continue
+        except Exception:
+            logging.exception("Failed to load board")
+            failed_boards.append(f"{board.manufacturer}/{board.model}/{board.variant}: {e!r}")
+            continue
 
-    for i in config.get_interfaces():
-        config.set_interface(i)
-        pp(config)
+        print("\n\n====SUMMARY====", file=sys.stderr)
+
+        for i in failed_interfaces:
+            print(i, file=sys.stderr)
+
+        for i in failed_boards:
+            print(i, file=sys.stderr)
 
 
 #    code.interact(local=locals())
