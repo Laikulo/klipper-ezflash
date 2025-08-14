@@ -76,7 +76,7 @@
         "Octopus-F446": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
-            "mcu": "STM32H446",
+            "mcu": "STM32F446",
             "clock": "12MHz"
           },
           "CAN_Bridge": {
