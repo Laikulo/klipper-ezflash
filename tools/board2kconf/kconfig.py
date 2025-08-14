@@ -27,21 +27,21 @@ class KConfig(object):
     def symbols(self):
         return [KConfigSymbol(self, x) for x in self._symbols()]
 
-    def _symbols(self):
-        return [x for x in self.kcl.unique_defined_syms if x.visibility != 0 and not x.choice]
+    def _symbols(self, allow_invisible: bool = False):
+        return [x for x in self.kcl.unique_defined_syms if (allow_invisible or x.visibility != 0) and not x.choice]
 
-    def _choices(self):
-        return [x for x in self.kcl.unique_choices if x.visibility != 0]
+    def _choices(self, allow_invisible: bool = False):
+        return [x for x in self.kcl.unique_choices if (allow_invisible or x.visibility != 0)]
 
-    def choice(self, name: str = None, prompt: str = None) -> Optional['KConfigChoice']:
+    def choice(self, name: str = None, prompt: str = None, allow_invisible: bool = False) -> Optional['KConfigChoice']:
         if name:
-            if matches := [x for x in self._choices() if x.prompt == name]:
+            if matches := [x for x in self._choices(allow_invisible) if x.prompt == name]:
                 if len(matches) > 1:
                     raise ValueError(f"More than one choice definition defined for {name}")
                 else:
                     return KConfigChoice(self, matches[0])
         elif prompt:
-            for choice in self._choices():
+            for choice in self._choices(allow_invisible):
                 for node in choice.nodes:
                     if node.prompt[0] == prompt:
                         return KConfigChoice(self, choice)
@@ -49,15 +49,15 @@ class KConfig(object):
             raise ValueError(f"No search for choice specified. This is a bug and should not happen")
         return None
 
-    def symbol(self, name: str = None, prompt: str = None) -> Optional['KConfigSymbol']:
+    def symbol(self, name: str = None, prompt: str = None, allow_invisible: bool = False) -> Optional['KConfigSymbol']:
         if name:
-            if matches := [x for x in self._symbols() if x.prompt == name]:
+            if matches := [x for x in self._symbols(allow_invisible) if x.name == name]:
                 if len(matches) > 1:
                     raise ValueError(f"More than one symbol defined for {name}")
                 else:
                     return KConfigSymbol(self, matches[0])
         elif prompt:
-            for symbol in self._symbols():
+            for symbol in self._symbols(allow_invisible):
                 for node in symbol.nodes:
                     if node.prompt[0] == prompt:
                         return KConfigSymbol(self, symbol)
@@ -80,6 +80,9 @@ class KConfigChoice(object):
 
     def values(self) -> List[str]:
         return [x.name for x in self._choice.syms]
+
+    def choices(self) -> List[KCLSymbol]:
+        return self._choice.syms
 
     def select(self, name: str = None, prompt: str = None):
         if name:
@@ -119,6 +122,17 @@ class KConfigSymbol(object):
                 raise ValueError(f"Not a boolean {val}")
         else:
             self._symbol.set_value(val)
+
+    def get(self):
+        if self._symbol.type == KCL_BOOL:
+            if self._symbol.tri_value == 2:
+                return True
+            elif self._symbol.tri_value == 0:
+                return False
+            else:
+                raise ValueError(f"Not a boolean {self._symbol.tri_value} for {self._symbol.name}")
+        else:
+            return self._symbol.str_value
 
     def __repr__(self):
         return self._symbol.__repr__()
