@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import logging
+from functools import cached_property
 from os import PathLike
 from pathlib import Path
 from typing import Union, Optional, Dict
@@ -43,7 +44,7 @@ class BoardDefinition(object):
     @classmethod
     def get_all_from_file(cls, file: PathLike):
         boards = list(cls.read_from_file(file))
-        logging.info(f"Loaded {len(boards)} boards")
+        logger.info(f"Loaded {len(boards)} boards")
         return boards
 
     @classmethod
@@ -54,13 +55,26 @@ class BoardDefinition(object):
             "variant": variant,
             "mcu": BoardMCUDefinition.from_data(definition['mcu']),
         }
-        if usb := definition.get('usb'):
+        if (usb := definition.get('usb')) is not None:
             opts['usb'] = usb
         if uart := definition.get('uart'):
             opts['uart'] = BoardUARTDefinition.from_data(uart)
         if can := definition.get('can'):
             opts['can'] = BoardCANDefinition.from_data(can)
+        elif can := definition.get('CAN_Bridge'):
+            opts['can'] = BoardCANDefinition.from_data(can)
         return cls(**opts)
+
+    @cached_property
+    def interfaces(self):
+        interfaces = []
+        if self.usb is not None:
+            interfaces.append(BoardInterfaceDefinition.usb(self.usb))
+        if self.uart:
+            interfaces.append(self.uart.as_interface())
+        if self.can:
+            interfaces.append(self.can.as_interface())
+        return interfaces
 
 
 @dataclasses.dataclass
@@ -82,6 +96,8 @@ class BoardCANDefinition(object):
                 rx_pin=data['can_rx']
             )
 
+    def as_interface(self):
+        return BoardInterfaceDefinition("CAN", {'tx': self.tx_pin, 'rx': self.rx_pin})
 
 @dataclasses.dataclass
 class BoardUARTDefinition(object):
@@ -94,6 +110,9 @@ class BoardUARTDefinition(object):
             tx_pin=data['tx_pin'],
             rx_pin=data['rx_pin']
         )
+
+    def as_interface(self):
+        return BoardInterfaceDefinition("UART", {'tx': self.tx_pin, 'rx': self.rx_pin})
 
 
 @dataclasses.dataclass
@@ -111,3 +130,27 @@ class BoardMCUDefinition(object):
             clock=data.get('clock'),
             flash=data.get('flash')
         )
+
+@dataclasses.dataclass
+class BoardInterfaceDefinition(object):
+    if_type: str
+    pins: Dict[str,str]
+
+    def __str__(self) -> str:
+        return f"{self.if_type.upper()}"
+
+    @classmethod
+    def usb(cls, spec):
+        if spec:
+            tok = spec.split("/")
+            pins = {
+                'dp': tok[0],
+                'dm': tok[1]
+            }
+        else:
+            pins = {}
+        return cls(
+            "USB",
+            pins
+        )
+
