@@ -442,6 +442,18 @@
           "usb": {},
           "status": "PA1"
         }
+      },
+      "H36": {
+        "H36": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {},
+          "usb": "PA11/PA12",
+          "can": "PB8/PB9",
+          "status": "PA1"
+        }
       }
     },
     "MKS": {
@@ -631,14 +643,14 @@
         },
         "KUSBA Pro v1.0": {
           "mcu": {
-            "mcu": "stm32g0b1",
+            "mcu": "STM32F042",
             "clock": "8MHz"
           },
           "usb": {}
         },
         "KUSBA Pro v2.0": {
           "mcu": {
-            "mcu": "stm32g0b1",
+            "mcu": "STM32G431",
             "clock": "8MHz"
           },
           "usb": {}
@@ -667,7 +679,33 @@
     }
   },
   "Other Boards": {
+    "Fysetc": {
+      "Hexa Distro Fusion": {
+        "Hexa Distro Fusion": {
+          "mcu": {
+            "mcu": "STM32F072",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB8",
+            "can_rx": "PB9"
+          },
+          "usb": {}
+        }
+      }
+    },
     "Iski's Tech": {
+      "AFC-Lite for Boxturtle": {
+        "AFC-Lite for Boxturtle": {
+          "mcu": {
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": {},
+          "status": "PA13"
+        }
+      },
       "Nevermore PCBs": {
         "Nevermore Max 2 PCB": {
           "mcu": {
@@ -693,6 +731,21 @@
           "can": "PB0/PB1",
           "usb": {},
           "status": "PA13"
+        }
+      }
+    },
+    "Replimat Labs": {
+      "DragonDinghy": {
+        "DragonDinghy": {
+          "mcu": {
+            "mcu": "STM32F072",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB8",
+            "can_rx": "PB9"
+          },
+          "usb": {}
         }
       }
     }
