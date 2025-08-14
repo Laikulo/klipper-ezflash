@@ -4,6 +4,7 @@
       "Kraken": {
         "Kraken_V1.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
             "clock": "25MHz"
           },
@@ -18,6 +19,7 @@
       "Manta_E3EZ": {
         "Manta_E3EZ": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -32,6 +34,7 @@
       "Manta_M5P": {
         "Manta_M5P_v1.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -45,6 +48,7 @@
       "Manta_M8P": {
         "Manta_M8P_v1.1": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -57,6 +61,7 @@
         },
         "Manta_M8P_v2.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
             "clock": "25MHz"
           },
@@ -70,6 +75,7 @@
       "Octopus": {
         "Octopus-F446": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H446",
             "clock": "12MHz"
           },
@@ -82,6 +88,7 @@
         },
         "Octopus-F429": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H429",
             "clock": "8MHz"
           },
@@ -94,6 +101,7 @@
         },
         "Octopus-F407": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
             "clock": "8MHz"
           },
@@ -106,6 +114,7 @@
         },
         "Octopus-H723": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
             "clock": "25MHz"
           },
@@ -120,6 +129,7 @@
       "Octopus_Max_EZ": {
         "Octopus_Max_EZ": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
             "clock": "25MHz"
           },
@@ -134,6 +144,7 @@
       "Octopus_Pro": {
         "Octopus_Pro_v1.1": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
             "clock": "25MHz"
           },
@@ -148,6 +159,7 @@
       "SKR_Mini_E3": {
         "SKR_Mini_E3_v3.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -159,6 +171,7 @@
       "SKR_Pico": {
         "SKR_Pico": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -172,6 +185,7 @@
       "SKR_3": {
         "SKR_3": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
             "clock": "25MHz"
           },
@@ -183,6 +197,7 @@
         },
         "SKR_3_EZ": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
             "clock": "25MHz"
           },
@@ -196,6 +211,7 @@
       "SKRat": {
         "SKRat_v1.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -212,6 +228,7 @@
       "Spider": {
         "Spider_v1.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
             "clock": "12MHz"
           },
@@ -224,6 +241,7 @@
         },
         "Spider_v2.2": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
             "clock": "12MHz"
           },
@@ -236,6 +254,7 @@
         },
         "Spider_v2.3": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
             "clock": "12MHz"
           },
@@ -248,6 +267,7 @@
         },
         "Spider_v3.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
             "clock": "12MHz"
           },
@@ -264,6 +284,7 @@
       "Leviathan": {
         "Leviathan_v1.2": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
             "clock": "12MHz"
           },
@@ -280,6 +301,7 @@
         },
         "Leviathan_v1.3": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H743",
             "clock": "12MHz"
           },
@@ -300,6 +322,7 @@
       "Monster8": {
         "Monster8_v2": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
             "clock": "8MHz"
           },
@@ -315,6 +338,7 @@
       "FLY-DP5": {
         "FLY-DP5": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F072",
             "clock": "8MHz"
           },
@@ -328,6 +352,7 @@
       "FLY_Super8": {
         "FLY_Super8": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
             "clock": "8MHz"
           },
@@ -345,6 +370,7 @@
       "EBB36": {
         "EBB36v1.2": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -356,6 +382,7 @@
       "EBB42": {
         "EBB42v1.2": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -367,6 +394,7 @@
       "MMB_CAN": {
         "MMB_CAN_v1.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -377,6 +405,7 @@
       "SB2209": {
         "SB2209": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -388,6 +417,7 @@
       "SB2209-RP2040": {
         "SB2209-RP2040": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -402,6 +432,7 @@
       "SB2209-USB": {
         "SB2209-USB": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -411,6 +442,7 @@
       "SB2240": {
         "SB2240": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -424,6 +456,7 @@
       "SB-Combo": {
         "SB-Combo_v2": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
             "clock": "12MHz"
           },
@@ -435,6 +468,7 @@
       "SB-CAN-TH": {
         "SB-CAN-TH": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
             "clock": "8MHz"
           },
@@ -446,6 +480,7 @@
       "H36": {
         "H36": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "12MHz"
           },
@@ -460,6 +495,7 @@
       "THR36": {
         "THR36_v1.0": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -475,6 +511,7 @@
       "Nitehawk-SB": {
         "Nitehawk-SB": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -485,6 +522,7 @@
       "Nitehawk36": {
         "Nitehawk36": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -497,6 +535,7 @@
       "Orbitool_O2": {
         "Orbitool_O2": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32f042",
             "clock": "8MHz"
           },
@@ -509,6 +548,7 @@
       "Orbitool_SO3": {
         "Orbitool_SO3": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32f042",
             "clock": "8MHz"
           },
@@ -523,6 +563,7 @@
       "SB2040": {
         "SB2040v1": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -535,6 +576,7 @@
         },
         "SB2040v2": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -547,6 +589,7 @@
         },
         "SB2040v3": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -565,6 +608,7 @@
       "SHT36": {
         "SHT36v1": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
             "clock": "8MHz"
           },
@@ -574,6 +618,7 @@
         },
         "SHT36v2-F702": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
             "clock": "8MHz"
           },
@@ -583,6 +628,7 @@
         },
         "SHT36v2-F103": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F103",
             "clock": "8MHz"
           },
@@ -592,6 +638,7 @@
         },
         "SHT36v3": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -610,6 +657,7 @@
       "SHT42": {
         "SHT42": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
             "clock": "8MHz"
           },
@@ -625,6 +673,7 @@
       "PIS": {
         "PIS": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -636,6 +685,7 @@
       "KUBSA": {
         "KUSBA v2.4": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -643,6 +693,7 @@
         },
         "KUSBA Pro v1.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F042",
             "clock": "8MHz"
           },
@@ -650,6 +701,7 @@
         },
         "KUSBA Pro v2.0": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32G431",
             "clock": "8MHz"
           },
@@ -661,6 +713,7 @@
       "Fly ADXL345": {
         "Fly ADXL345": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -670,6 +723,7 @@
       "Fly LIS2DW": {
         "Fly LIS2DW": {
           "mcu": {
+            "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
           },
@@ -683,6 +737,7 @@
       "Hexa Distro Fusion": {
         "Hexa Distro Fusion": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F072",
             "clock": "12MHz"
           },
@@ -698,6 +753,7 @@
       "AFC-Lite for Boxturtle": {
         "AFC-Lite for Boxturtle": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
             "clock": "25MHz"
           },
@@ -709,6 +765,7 @@
       "Nevermore PCBs": {
         "Nevermore Max 2 PCB": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -716,6 +773,7 @@
         },
         "Nevermore Mini and Stealthmax PCB": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -725,6 +783,7 @@
         },
         "Nevermore Stealthmax PCB 2": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
             "clock": "8MHz"
           },
@@ -738,6 +797,7 @@
       "DragonDinghy": {
         "DragonDinghy": {
           "mcu": {
+            "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F072",
             "clock": "12MHz"
           },
