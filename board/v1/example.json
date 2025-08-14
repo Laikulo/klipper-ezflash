@@ -1,0 +1,700 @@
+{
+  "Mainboards": {
+    "BTT": {
+      "Kraken": {
+        "Kraken_V1.0": {
+          "mcu": {
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA14"
+        }
+      },
+      "Manta_E3EZ": {
+        "Manta_E3EZ": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB12",
+            "can_rx": "PB13"
+          },
+          "usb": "PA11/PA12",
+          "status": "PC7"
+        }
+      },
+      "Manta_M5P": {
+        "Manta_M5P_v1.0": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12"
+        }
+      },
+      "Manta_M8P": {
+        "Manta_M8P_v1.1": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD12",
+            "can_rx": "PD13"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        },
+        "Manta_M8P_v2.0": {
+          "mcu": {
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12"
+        }
+      },
+      "Octopus": {
+        "Octopus-F446": {
+          "mcu": {
+            "mcu": "STM32H446",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        },
+        "Octopus-F429": {
+          "mcu": {
+            "mcu": "STM32H429",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        },
+        "Octopus-F407": {
+          "mcu": {
+            "mcu": "STM32F407",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        },
+        "Octopus-H723": {
+          "mcu": {
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        }
+      },
+      "Octopus_Max_EZ": {
+        "Octopus_Max_EZ": {
+          "mcu": {
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA14"
+        }
+      },
+      "Octopus_Pro": {
+        "Octopus_Pro_v1.1": {
+          "mcu": {
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        }
+      },
+      "SKR_Mini_E3": {
+        "SKR_Mini_E3_v3.0": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {},
+          "usb": "PA11/PA12",
+          "status": "PD8"
+        }
+      },
+      "SKR_Pico": {
+        "SKR_Pico": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "CAN_Bridge": {
+            "can_tx": "0",
+            "can_rx": "1"
+          },
+          "usb": {}
+        }
+      },
+      "SKR_3": {
+        "SKR_3": {
+          "mcu": {
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB8",
+            "can_rx": "PB9"
+          },
+          "usb": "PA11/PA12"
+        },
+        "SKR_3_EZ": {
+          "mcu": {
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB8",
+            "can_rx": "PB9"
+          },
+          "usb": "PA11/PA12"
+        }
+      },
+      "SKRat": {
+        "SKRat_v1.0": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PE2"
+        }
+      }
+    },
+    "Fystec": {
+      "Spider": {
+        "Spider_v1.0": {
+          "mcu": {
+            "mcu": "STM32F446",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PD3"
+        },
+        "Spider_v2.2": {
+          "mcu": {
+            "mcu": "STM32F446",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PD3"
+        },
+        "Spider_v2.3": {
+          "mcu": {
+            "mcu": "STM32F446",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PD3"
+        },
+        "Spider_v3.0": {
+          "mcu": {
+            "mcu": "STM32F446",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PD0",
+            "can_rx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PD3"
+        }
+      }
+    },
+    "LDO": {
+      "Leviathan": {
+        "Leviathan_v1.2": {
+          "mcu": {
+            "mcu": "STM32F446",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB5",
+            "can_rx": "PB6"
+          },
+          "uart": {
+            "tx_pin": "PA9",
+            "rx_pin": "PA10"
+          },
+          "usb": "PA11/PA12",
+          "status": "PE1"
+        },
+        "Leviathan_v1.3": {
+          "mcu": {
+            "mcu": "STM32H743",
+            "clock": "12MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB5",
+            "can_rx": "PB6"
+          },
+          "uart": {
+            "tx_pin": "PA9",
+            "rx_pin": "PA10"
+          },
+          "usb": "PA11/PA12",
+          "status": "PE1"
+        }
+      }
+    },
+    "MKS": {
+      "Monster8": {
+        "Monster8_v2": {
+          "mcu": {
+            "mcu": "STM32F407",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB8",
+            "can_rx": "PB9"
+          },
+          "usb": "PA11/PA12"
+        }
+      }
+    },
+    "Mellow3D": {
+      "FLY-DP5": {
+        "FLY-DP5": {
+          "mcu": {
+            "mcu": "STM32F072",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB8",
+            "can_rx": "PB9"
+          },
+          "usb": "PA11/PA12"
+        }
+      },
+      "FLY_Super8": {
+        "FLY_Super8": {
+          "mcu": {
+            "mcu": "STM32F407",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_tx": "PB8",
+            "can_rx": "PB9"
+          },
+          "usb": "PA11/PA12"
+        }
+      }
+    }
+  },
+  "Toolheads": {
+    "BTT": {
+      "EBB36": {
+        "EBB36v1.2": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": {},
+          "status": "PA13"
+        }
+      },
+      "EBB42": {
+        "EBB42v1.2": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": {},
+          "status": "PA13"
+        }
+      },
+      "MMB_CAN": {
+        "MMB_CAN_v1.0": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": {}
+        }
+      },
+      "SB2209": {
+        "SB2209": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": {},
+          "status": "PA13"
+        }
+      },
+      "SB2209-RP2040": {
+        "SB2209-RP2040": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "4",
+            "can_tx": "5"
+          },
+          "usb": {},
+          "status": "gpio26"
+        }
+      },
+      "SB2209-USB": {
+        "SB2209-USB": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {}
+        }
+      },
+      "SB2240": {
+        "SB2240": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": {},
+          "status": "PA13"
+        }
+      }
+    },
+    "Fysetc": {
+      "SB-Combo": {
+        "SB-Combo_v2": {
+          "mcu": {
+            "mcu": "stm32F072",
+            "clock": "12MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": {},
+          "status": "!PC13"
+        }
+      },
+      "SB-CAN-TH": {
+        "SB-CAN-TH": {
+          "mcu": {
+            "mcu": "stm32F072",
+            "clock": "8MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": {},
+          "status": "PA1"
+        }
+      }
+    },
+    "MKS": {
+      "THR36": {
+        "THR36_v1.0": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "8",
+            "can_tx": "9"
+          },
+          "usb": {}
+        }
+      }
+    },
+    "LDO": {
+      "Nitehawk-SB": {
+        "Nitehawk-SB": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {},
+          "status": "!gpio8"
+        }
+      },
+      "Nitehawk36": {
+        "Nitehawk36": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {},
+          "status": "!gpio8"
+        }
+      }
+    },
+    "OrbiterProjects": {
+      "Orbitool_O2": {
+        "Orbitool_O2": {
+          "mcu": {
+            "mcu": "stm32f042",
+            "clock": "8MHz"
+          },
+          "usb": "PA11/PA12",
+          "klipper_options": {
+            "serial_number": "OrbitoolO2"
+          }
+        }
+      },
+      "Orbitool_SO3": {
+        "Orbitool_SO3": {
+          "mcu": {
+            "mcu": "stm32f042",
+            "clock": "8MHz"
+          },
+          "usb": "PA11/PA12",
+          "klipper_options": {
+            "serial_number": "SO3Tool"
+          }
+        }
+      }
+    },
+    "Mellow": {
+      "SB2040": {
+        "SB2040v1": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "4",
+            "can_tx": "5"
+          },
+          "usb": {},
+          "status": "gpio24"
+        },
+        "SB2040v2": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "4",
+            "can_tx": "5"
+          },
+          "usb": {},
+          "status": "gpio24"
+        },
+        "SB2040v3": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "1",
+            "can_tx": "0"
+          },
+          "rs232": {
+            "tx": "gpio1",
+            "rx": "gpio0"
+          },
+          "usb": {},
+          "status": "!gpio5"
+        }
+      },
+      "SHT36": {
+        "SHT36v1": {
+          "mcu": {
+            "mcu": "stm32F072",
+            "clock": "8MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": {},
+          "status": "!PC13"
+        },
+        "SHT36v2-F702": {
+          "mcu": {
+            "mcu": "stm32F072",
+            "clock": "8MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": {},
+          "status": "!PC13"
+        },
+        "SHT36v2-F103": {
+          "mcu": {
+            "mcu": "STM32F103",
+            "clock": "8MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": {},
+          "status": "!PC13"
+        },
+        "SHT36v3": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "1",
+            "can_tx": "0"
+          },
+          "rs232": {
+            "tx": "gpio1",
+            "rx": "gpio0"
+          },
+          "usb": {},
+          "status": "!gpio5"
+        }
+      },
+      "SHT42": {
+        "SHT42": {
+          "mcu": {
+            "mcu": "stm32F072",
+            "clock": "8MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": {},
+          "status": "!PC13"
+        }
+      }
+    }
+  },
+  "Input Shaper Boards": {
+    "Fysetc": {
+      "PIS": {
+        "PIS": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {}
+        }
+      }
+    },
+    "Iski's Tech": {
+      "KUBSA": {
+        "KUSBA v2.4": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {}
+        },
+        "KUSBA Pro v1.0": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "usb": {}
+        },
+        "KUSBA Pro v2.0": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "usb": {}
+        }
+      }
+    },
+    "Mellow3D": {
+      "Fly ADXL345": {
+        "Fly ADXL345": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {}
+        }
+      },
+      "Fly LIS2DW": {
+        "Fly LIS2DW": {
+          "mcu": {
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {}
+        }
+      }
+    }
+  },
+  "Other Boards": {
+    "Iski's Tech": {
+      "Nevermore PCBs": {
+        "Nevermore Max 2 PCB": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "usb": {}
+        },
+        "Nevermore Mini and Stealthmax PCB": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": {},
+          "status": "PA13"
+        },
+        "Nevermore Stealthmax PCB 2": {
+          "mcu": {
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": {},
+          "status": "PA13"
+        }
+      }
+    }
+  }
+}
