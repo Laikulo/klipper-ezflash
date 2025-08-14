@@ -9,8 +9,8 @@
             "clock": "25MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PA14"
@@ -24,8 +24,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB12",
-            "can_rx": "PB13"
+            "can_rx": "PB12",
+            "can_tx": "PB13"
           },
           "usb": "PA11/PA12",
           "status": "PC7"
@@ -39,8 +39,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12"
         }
@@ -53,8 +53,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD12",
-            "can_rx": "PD13"
+            "can_rx": "PD12",
+            "can_tx": "PD13"
           },
           "usb": "PA11/PA12",
           "status": "PA13"
@@ -66,8 +66,8 @@
             "clock": "25MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12"
         }
@@ -80,8 +80,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PA13"
@@ -93,8 +93,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PA13"
@@ -106,8 +106,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PA13"
@@ -119,8 +119,8 @@
             "clock": "25MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PA13"
@@ -134,8 +134,8 @@
             "clock": "25MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PA14"
@@ -149,8 +149,8 @@
             "clock": "25MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PA13"
@@ -176,8 +176,8 @@
             "flash": "w25q080"
           },
           "CAN_Bridge": {
-            "can_tx": "0",
-            "can_rx": "1"
+            "can_rx": "0",
+            "can_tx": "1"
           },
           "usb": {}
         }
@@ -190,8 +190,8 @@
             "clock": "25MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB8",
-            "can_rx": "PB9"
+            "can_rx": "PB8",
+            "can_tx": "PB9"
           },
           "usb": "PA11/PA12"
         },
@@ -202,8 +202,8 @@
             "clock": "25MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB8",
-            "can_rx": "PB9"
+            "can_rx": "PB8",
+            "can_tx": "PB9"
           },
           "usb": "PA11/PA12"
         }
@@ -216,8 +216,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PE2"
@@ -233,8 +233,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PD3"
@@ -246,8 +246,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PD3"
@@ -259,8 +259,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PD3"
@@ -272,8 +272,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PD0",
-            "can_rx": "PD1"
+            "can_rx": "PD0",
+            "can_tx": "PD1"
           },
           "usb": "PA11/PA12",
           "status": "PD3"
@@ -289,8 +289,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB5",
-            "can_rx": "PB6"
+            "can_rx": "PB5",
+            "can_tx": "PB6"
           },
           "uart": {
             "tx_pin": "PA9",
@@ -306,8 +306,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB5",
-            "can_rx": "PB6"
+            "can_rx": "PB5",
+            "can_tx": "PB6"
           },
           "uart": {
             "tx_pin": "PA9",
@@ -327,8 +327,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB8",
-            "can_rx": "PB9"
+            "can_rx": "PB8",
+            "can_tx": "PB9"
           },
           "usb": "PA11/PA12"
         }
@@ -343,8 +343,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB8",
-            "can_rx": "PB9"
+            "can_rx": "PB8",
+            "can_tx": "PB9"
           },
           "usb": "PA11/PA12"
         }
@@ -357,8 +357,8 @@
             "clock": "8MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB8",
-            "can_rx": "PB9"
+            "can_rx": "PB8",
+            "can_tx": "PB9"
           },
           "usb": "PA11/PA12"
         }
@@ -422,8 +422,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "4",
-            "can_tx": "5"
+            "can_tx": "4",
+            "can_rx": "5"
           },
           "usb": {},
           "status": "gpio26"
@@ -500,8 +500,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "8",
-            "can_tx": "9"
+            "can_tx": "8",
+            "can_rx": "9"
           },
           "usb": {}
         }
@@ -568,8 +568,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "4",
-            "can_tx": "5"
+            "can_tx": "4",
+            "can_rx": "5"
           },
           "usb": {},
           "status": "gpio24"
@@ -581,8 +581,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "4",
-            "can_tx": "5"
+            "can_tx": "4",
+            "can_rx": "5"
           },
           "usb": {},
           "status": "gpio24"
@@ -594,8 +594,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "1",
-            "can_tx": "0"
+            "can_tx": "1",
+            "can_rx": "0"
           },
           "rs232": {
             "tx": "gpio1",
@@ -643,8 +643,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "1",
-            "can_tx": "0"
+            "can_tx": "1",
+            "can_rx": "0"
           },
           "rs232": {
             "tx": "gpio1",
@@ -725,7 +725,7 @@
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
-            "flash": "w25q080"
+            "flash": "generic"
           },
           "usb": {}
         }
@@ -742,8 +742,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB8",
-            "can_rx": "PB9"
+            "can_rx": "PB8",
+            "can_tx": "PB9"
           },
           "usb": {}
         }
@@ -802,8 +802,8 @@
             "clock": "12MHz"
           },
           "CAN_Bridge": {
-            "can_tx": "PB8",
-            "can_rx": "PB9"
+            "can_rx": "PB8",
+            "can_tx": "PB9"
           },
           "usb": {}
         }
