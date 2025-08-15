@@ -16,7 +16,19 @@ class Configurator(object):
         self.klipper_path = klipper_path
         self.kconfig = KConfig(klipper_path)
         self._board = board
+        # We always set the below, because tons of stuff is missing otherwise
         self.kconfig.symbol(prompt="Enable extra low-level configuration options").set(True)
+        self._load_from_board(board)
+
+    def _load_from_board(self, board):
+        self.set_arch(board.mcu.arch)
+        self.set_mcu(board.mcu.mcu)
+        if clock := board.mcu.clock:
+            self.set_freq(clock)
+        # Note: we don't want to set flash type if we don't have a "stage 2". Which we don't have if there is a bootloader.
+        # RP2040 specifically
+        if flash := board.mcu.flash:
+            self.set_flash(flash)
 
     def set_arch(self, arch):
         # Arch is pretty easy to deal with, since it is always the same prompt, but the choice is unnamed

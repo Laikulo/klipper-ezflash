@@ -4,7 +4,9 @@ import logging
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
-from typing import Union, Optional, Dict
+from typing import Union, Optional, Dict, TextIO
+
+from .util import get_boards
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,9 @@ class BoardDefinition(object):
     status: Optional[str] = None
     klipper_options: Optional[Dict[str,str]] = None
 
+    def __str__(self):
+        return f"{self.manufacturer}/{self.model}/{self.variant}"
+
     @classmethod
     def get_one_from_file(cls, file: PathLike, category: str, manufacturer: str, model: str, variant: str) -> 'BoardDefinition':
         all_data = json.load(Path(file).open())
@@ -30,7 +35,11 @@ class BoardDefinition(object):
 
     @classmethod
     def read_from_file(cls, file: PathLike):
-        json_data = json.load(Path(file).open())
+        yield cls.read_from_stream(Path(file).open())
+
+    @classmethod
+    def read_from_stream(cls, stream: TextIO):
+        json_data = json.load(stream)
         for category, manufacturers in json_data.items():
             for manufacturer, products in manufacturers.items():
                 for product, variants in products.items():
@@ -44,6 +53,12 @@ class BoardDefinition(object):
     @classmethod
     def get_all_from_file(cls, file: PathLike):
         boards = list(cls.read_from_file(file))
+        logger.info(f"Loaded {len(boards)} boards")
+        return boards
+
+    @classmethod
+    def get_all(cls):
+        boards = list(cls.read_from_stream(get_boards()))
         logger.info(f"Loaded {len(boards)} boards")
         return boards
 

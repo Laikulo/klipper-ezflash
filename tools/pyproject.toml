@@ -12,3 +12,6 @@ dynamic = ["version"]
 dependencies = [
     'kconfiglib'
 ]
+
+[project.scripts]
+"check_kboards" = "board2kconf.scripts.test_all_boards:main"
