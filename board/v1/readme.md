@@ -19,3 +19,14 @@ Fields for descriptiors:
 * klipper_options
   * serial_number - str
   * ... (per target)
+
+
+
+TODOs:
+* Merge CAN_Bridge and can
+* Merge uart and rs232
+* Standardize on pin naming for rs232/uart
+* Get rid of nulls for usb
+* Figure out how to represent USB with no options
+  * Right now, empty object, but that can be a mess
+* Document order of / notation
