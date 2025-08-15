@@ -83,7 +83,7 @@ class Configurator(object):
         if flash_choice := self.kconfig.choice(prompt="Flash chip"):
             for possible_flash in flash_choice.choices():
                 if possible_flash.nodes[0].prompt[0].lower().startswith(flash.lower()):
-                    logger.debug(f'Selected {possible_flash!r} for flash specifiction {flash}')
+                    logger.debug(f'Selected {possible_flash!r} for flash specification {flash}')
                     possible_flash.set_value(2)
                     return
             raise ValueError(f"Could not select flash {flash}, is it supported by this version of klipper?")
@@ -91,6 +91,9 @@ class Configurator(object):
 
     def get_interfaces(self):
         return self._board.interfaces
+
+    # TODO: get_interface - return the currently active interface
+    # TODO: on init, determin which interface is active (from defaults) and set as active here.
 
     def _get_comms_choice(self):
         return self.kconfig.choice(prompt="Communication interface")
@@ -106,7 +109,6 @@ class Configurator(object):
                 have_usb = True
         if not (have_can and have_usb):
             return False
-        # TODO: This isn't a safe assumption, check for an apropriate symbol
         for choice in self._get_comms_choice().choices():
             if choice.nodes[0].prompt[0].lower().startswith("usb to can bus bridge"):
                 return True
@@ -125,8 +127,8 @@ class Configurator(object):
             if 'CAN bus' in self._get_comms_choice().prompts():
                 self._get_comms_choice().select(prompt='CAN bus')
                 if (rx_sym := self.kconfig.symbol(prompt="CAN RX gpio number")) and (tx_sym := self.kconfig.symbol(prompt="CAN TX gpio number")):
-                    rx_sym.set(interface.pins['rx'])
-                    tx_sym.set(interface.pins['tx'])
+                    rx_sym.set(interface.pins['rx'].removeprefix('gpio'))
+                    tx_sym.set(interface.pins['tx'].removeprefix('gpio'))
                 else:
                     raise RuntimeError("Generic can bus comms specified, but pin configurations could not be found")
             else:
@@ -140,6 +142,17 @@ class Configurator(object):
             raise ValueError(f"Serial not found {interface!r}")
         else:
             raise ValueError(f"Interface type {interface.if_type} is not supported")
+
+    def set_baud(self, baud):
+        """
+        Set the baud rate of whatever interface is currently configured.
+        Errors if USB is selected.
+        If canbridge is active, then sets the can downstream baudrate
+        :param baud:
+        :return:
+        """
+        raise NotImplementedError("Setting baud is not supported")
+
 
 
     def _header(self):

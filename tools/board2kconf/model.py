@@ -1,7 +1,7 @@
 import dataclasses
 import json
 import logging
-from functools import cached_property
+from functools import cached_property, cache
 from os import PathLike
 from pathlib import Path
 from typing import Union, Optional, Dict, TextIO
@@ -9,6 +9,25 @@ from typing import Union, Optional, Dict, TextIO
 from .util import get_boards
 
 logger = logging.getLogger(__name__)
+
+class BoardDatabase(object):
+    def __init__(self, source: TextIO|PathLike|None=None):
+        if source is None:
+            self._boards = list(BoardDefinition.read_from_stream(get_boards()))
+        elif isinstance(source, PathLike):
+            self._boards = list(BoardDefinition.read_from_file(source))
+        elif isinstance(source, TextIO):
+            self._boards = list(BoardDefinition.read_from_stream(source))
+
+    def get(self, manufacturer, model, variant):
+        if mfr_matches := [x for x in self._boards if x.manufacturer == manufacturer]:
+            if model_matches := [x for x in mfr_matches if x.model == model]:
+                if variant_matches := [x for x in model_matches if x.variant == variant]:
+                    if len(variant_matches) > 1:
+                        raise ValueError("Duplicate board definition")
+                    elif len(variant_matches) == 1:
+                        return variant_matches[0]
+        raise ValueError(f"No board data for {manufacturer}/{model}/{variant}")
 
 @dataclasses.dataclass
 class BoardDefinition(object):
@@ -57,10 +76,24 @@ class BoardDefinition(object):
         return boards
 
     @classmethod
+    @cache
     def get_all(cls):
         boards = list(cls.read_from_stream(get_boards()))
         logger.info(f"Loaded {len(boards)} boards")
         return boards
+
+    @classmethod
+    def get(cls, manufacturer, model, variant):
+        if mfr_matches := [x for x in cls.get_all() if x.manufacturer == manufacturer]:
+            if model_matches := [x for x in mfr_matches if x.model == model]:
+                if variant_matches := [x for x in model_matches if x.variant == variant]:
+                    if len(variant_matches) > 1:
+                        raise ValueError("Duplicate board definition")
+                    elif len(variant_matches) == 1:
+                        return variant_matches[0]
+        raise ValueError(f"No board data for {manufacturer}/{model}/{variant}")
+
+
 
     @classmethod
     def from_data(cls, manufacturer, model, variant, definition: Dict) -> 'BoardDefinition':
