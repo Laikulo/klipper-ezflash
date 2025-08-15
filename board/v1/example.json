@@ -176,8 +176,8 @@
             "flash": "w25q080"
           },
           "CAN_Bridge": {
-            "can_tx": "0",
-            "can_rx": "1"
+            "can_tx": "gpio0",
+            "can_rx": "gpio1"
           },
           "usb": {}
         }
@@ -422,8 +422,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "4",
-            "can_tx": "5"
+            "can_rx": "gpio4",
+            "can_tx": "gpio5"
           },
           "usb": {},
           "status": "gpio26"
@@ -568,8 +568,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "4",
-            "can_tx": "5"
+            "can_rx": "gpio4",
+            "can_tx": "gpio5"
           },
           "usb": {},
           "status": "gpio24"
@@ -581,8 +581,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "4",
-            "can_tx": "5"
+            "can_rx": "gpio4",
+            "can_tx": "gpio5"
           },
           "usb": {},
           "status": "gpio24"
@@ -594,8 +594,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "1",
-            "can_tx": "0"
+            "can_rx": "gpio1",
+            "can_tx": "gpio0"
           },
           "rs232": {
             "tx": "gpio0",
@@ -643,8 +643,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "1",
-            "can_tx": "0"
+            "can_rx": "gpio1",
+            "can_tx": "gpio0"
           },
           "rs232": {
             "tx": "gpio0",
