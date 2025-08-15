@@ -725,7 +725,7 @@
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
-            "flash": "generic"
+            "flash": "w25q080"
           },
           "usb": {}
         }
