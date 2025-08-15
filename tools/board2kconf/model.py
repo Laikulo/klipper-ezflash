@@ -74,6 +74,11 @@ class BoardDefinition(object):
             opts['usb'] = usb
         if uart := definition.get('uart'):
             opts['uart'] = BoardUARTDefinition.from_data(uart)
+        elif rs232 := definition.get('rs232'):
+            opts['uart'] = BoardUARTDefinition.from_data({
+                'tx_pin': rs232['tx'],
+                'rx_pin': rs232['rx']
+            })
         if can := definition.get('can'):
             opts['can'] = BoardCANDefinition.from_data(can)
         elif can := definition.get('CAN_Bridge'):

@@ -132,7 +132,7 @@ class Configurator(object):
             else:
                 self._get_comms_choice().select(prompt=f'CAN bus (on {interface.pins['rx']}/{interface.pins['tx']})')
         elif interface.if_type == "UART":
-            target_re = re.compile(f'^Serial \\(on US?ART[0-9]* {interface.pins['rx']}/{interface.pins['tx']}\\)')
+            target_re = re.compile(f'^Serial \\(on US?ART[0-9]* {interface.pins['rx'].upper()}/{interface.pins['tx'].upper()}\\)')
             for possible_comms in self._get_comms_choice().choices():
                 if target_re.match(possible_comms.nodes[0].prompt[0]):
                     possible_comms.set_value(2)

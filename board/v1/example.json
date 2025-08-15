@@ -375,7 +375,7 @@
             "clock": "8MHz"
           },
           "can": "PB0/PB1",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "PA13"
         }
       },
@@ -387,7 +387,7 @@
             "clock": "8MHz"
           },
           "can": "PB0/PB1",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "PA13"
         }
       },
@@ -399,7 +399,7 @@
             "clock": "8MHz"
           },
           "can": "PB0/PB1",
-          "usb": null
+          "usb": "PA11/PA12"
         }
       },
       "SB2209": {
@@ -410,7 +410,7 @@
             "clock": "8MHz"
           },
           "can": "PB0/PB1",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "PA13"
         }
       },
@@ -447,7 +447,7 @@
             "clock": "8MHz"
           },
           "can": "PB0/PB1",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "PA13"
         }
       }
@@ -461,7 +461,7 @@
             "clock": "12MHz"
           },
           "can": "PB8/PB9",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "!PC13"
         }
       },
@@ -473,7 +473,7 @@
             "clock": "8MHz"
           },
           "can": "PB8/PB9",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "PA1"
         }
       },
@@ -598,8 +598,8 @@
             "can_tx": "0"
           },
           "rs232": {
-            "tx": "gpio1",
-            "rx": "gpio0"
+            "tx": "gpio0",
+            "rx": "gpio1"
           },
           "usb": {},
           "status": "!gpio5"
@@ -613,7 +613,7 @@
             "clock": "8MHz"
           },
           "can": "PB8/PB9",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "!PC13"
         },
         "SHT36v2-F702": {
@@ -623,7 +623,7 @@
             "clock": "8MHz"
           },
           "can": "PB8/PB9",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "!PC13"
         },
         "SHT36v2-F103": {
@@ -633,7 +633,7 @@
             "clock": "8MHz"
           },
           "can": "PB8/PB9",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "!PC13"
         },
         "SHT36v3": {
@@ -647,8 +647,8 @@
             "can_tx": "0"
           },
           "rs232": {
-            "tx": "gpio1",
-            "rx": "gpio0"
+            "tx": "gpio0",
+            "rx": "gpio1"
           },
           "usb": {},
           "status": "!gpio5"
@@ -662,7 +662,7 @@
             "clock": "8MHz"
           },
           "can": "PB8/PB9",
-          "usb": null,
+          "usb": "PA11/PA12",
           "status": "!PC13"
         }
       }
