@@ -100,14 +100,14 @@ class KConfigChoice(object):
             if len(matches):
                 matches[0].set_value(2)
             else:
-                raise ValueError(f"No option {name} found for {self.prompt}")
+                raise ValueError(f"No option {name} found for {self.prompt} ({self.values!r})")
         elif prompt:
             for choice in self._choice.syms:
                 for node in choice.nodes:
                     if node.prompt[0] == prompt:
                         choice.set_value(2)
                         return
-            raise ValueError(f"No option {prompt} found for {self.prompt}")
+            raise ValueError(f"No option {prompt} found for {self.prompt} ({self.prompts()!r}")
         else:
             raise ValueError(f"No selection for {self.prompt}")
 

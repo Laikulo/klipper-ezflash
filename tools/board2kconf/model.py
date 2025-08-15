@@ -87,13 +87,13 @@ class BoardCANDefinition(object):
         if type(data) is str:
             tok = data.split("/")
             return cls(
-                tx_pin=tok[0],
-                rx_pin=tok[1],
+                rx_pin=tok[0],
+                tx_pin=tok[1]
             )
         else:
             return cls(
-                tx_pin=data['can_tx'],
-                rx_pin=data['can_rx']
+                rx_pin=data['can_rx'],
+                tx_pin=data['can_tx']
             )
 
     def as_interface(self):
@@ -107,8 +107,8 @@ class BoardUARTDefinition(object):
     @classmethod
     def from_data(cls, data: Dict) -> 'BoardUARTDefinition':
         return cls(
-            tx_pin=data['tx_pin'],
-            rx_pin=data['rx_pin']
+            rx_pin=data['rx_pin'],
+            tx_pin=data['tx_pin']
         )
 
     def as_interface(self):
@@ -144,8 +144,8 @@ class BoardInterfaceDefinition(object):
         if spec:
             tok = spec.split("/")
             pins = {
-                'dp': tok[0],
-                'dm': tok[1]
+                'dm': tok[0],
+                'dp': tok[1]
             }
         else:
             pins = {}

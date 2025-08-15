@@ -108,7 +108,7 @@ class Configurator(object):
             if not interface.pins:
                 self._get_comms_choice().select(prompt='USB')
             else:
-                self._get_comms_choice().select(prompt=f'USB (on {interface.pins['dp']}/{interface.pins['dm']})')
+                self._get_comms_choice().select(prompt=f'USB (on {interface.pins['dm']}/{interface.pins['dp']})')
         elif interface.if_type == "CAN":
             if 'CAN bus' in self._get_comms_choice().prompts():
                 self._get_comms_choice().select(prompt='CAN bus')
@@ -120,7 +120,7 @@ class Configurator(object):
             else:
                 self._get_comms_choice().select(prompt=f'CAN bus (on {interface.pins['rx']}/{interface.pins['tx']})')
         elif interface.if_type == "UART":
-            target_re = re.compile(f'^Serial \\(on UART[0-9]* {interface.pins['rx']}/{interface.pins['tx']}\\)')
+            target_re = re.compile(f'^Serial \\(on US?ART[0-9]* {interface.pins['rx']}/{interface.pins['tx']}\\)')
             for possible_comms in self._get_comms_choice().choices():
                 if target_re.match(possible_comms.nodes[0].prompt[0]):
                     possible_comms.set_value(2)
