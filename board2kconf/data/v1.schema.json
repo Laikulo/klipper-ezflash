@@ -1,0 +1,189 @@
+{
+  "type": "object",
+  "additionalProperties": {
+    "title": "Category",
+    "type": "object",
+    "additionalProperties": {
+      "title": "Manufacturer",
+      "type": "object",
+      "additionalProperties": {
+        "title": "Model",
+        "type": "object",
+        "additionalProperties": {
+          "title": "Variant",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mcu": {
+              "type": "object",
+              "properties": {
+                "architecture": {
+                  "type": "string"
+                },
+                "mcu": {
+                  "type": "string"
+                },
+                "clock": {
+                  "type": "string"
+                },
+                "flash": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "architecture",
+                "mcu"
+              ],
+              "additionalProperties": false
+            },
+            "usb": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "dm_pin": {
+                      "type": "string"
+                    },
+                    "dp_pin": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "dm_pin",
+                    "dp_pin"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "CAN_Bridge": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "can_rx": {
+                      "type": "string"
+                    },
+                    "can_tx": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "can_rx",
+                    "can_tx"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "can": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "can_rx": {
+                      "type": "string"
+                    },
+                    "can_tx": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "can_rx",
+                    "can_tx"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "uart": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tx_pin": {
+                      "type": "string"
+                    },
+                    "rx_pin": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tx_pin",
+                    "rx_pin"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "rs232": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "tx": {
+                      "type": "string"
+                    },
+                    "rx": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tx",
+                    "rx"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "klipper_options": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "minProperties": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

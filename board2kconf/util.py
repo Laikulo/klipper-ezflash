@@ -31,8 +31,8 @@ def get_boards():
         else:
             raise ValueError("Specified KBOARD_BOARDS_PATH does not exist")
     try:
-        return files('board2kconf.data').joinpath("boards.json")
-    except FileNotFoundError:
+        return files('board2kconf.data').joinpath("boards.json").open("r")
+    except (FileNotFoundError, ModuleNotFoundError):
         pass
     # Try other options here
     raise RuntimeError("Could not find the board database")

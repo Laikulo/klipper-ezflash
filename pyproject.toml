@@ -10,8 +10,17 @@ authors = [
 ]
 dynamic = ["version"]
 dependencies = [
-    'kconfiglib'
+    'kconfiglib',
+    'urwid'
 ]
+
+[tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+include = ["board2kconf", "board2kconf.*"]
+
+[tool.setuptools.package-data]
+"board2kconf.data" = [ "*.json" ]
 
 [project.scripts]
 "check_kboards" = "board2kconf.scripts.test_all_boards:main"
