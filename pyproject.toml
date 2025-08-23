@@ -23,4 +23,6 @@ include = ["board2kconf", "board2kconf.*"]
 "board2kconf.data" = [ "*.json" ]
 
 [project.scripts]
-"check_kboards" = "board2kconf.scripts.test_all_boards:main"
+"ezflash-check-board-data" = "board2kconf.scripts.test_all_boards:main"
+"ezflash-board2kconf" = "board2kconf.scripts.board2kconf:main"
+"ezflash" = "board2kconf.__main__:main"
