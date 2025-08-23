@@ -1,7 +1,7 @@
 import os
 from os import PathLike
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Iterable, Union
 
 from kconfiglib import Kconfig as KCLKConfig, Choice as KCLChoice, Symbol as KCLSymbol, BOOL as KCL_BOOL
 
@@ -43,7 +43,7 @@ class KConfig(object):
         elif prompt:
             for choice in self._choices(allow_invisible):
                 for node in choice.nodes:
-                    if node.prompt[0] == prompt:
+                    if node.prompt[0].lower() == prompt.lower():
                         return KConfigChoice(self, choice)
         else:
             raise ValueError(f"No search for choice specified. This is a bug and should not happen")
@@ -59,7 +59,7 @@ class KConfig(object):
         elif prompt:
             for symbol in self._symbols(allow_invisible):
                 for node in symbol.nodes:
-                    if node.prompt[0] == prompt:
+                    if node.prompt[0].lower() == prompt.lower():
                         return KConfigSymbol(self, symbol)
         else:
             raise ValueError(f"No search for symbol specified. This is a bug and should not happen")
@@ -94,7 +94,7 @@ class KConfigChoice(object):
     def choices(self) -> List[KCLSymbol]:
         return self._choice.syms
 
-    def select(self, name: str = None, prompt: str = None):
+    def select(self, name: str = None, prompt: Union[str,Iterable[str],None] = None):
         if name:
             matches = [x for x in self._choice.syms if x.name == name]
             if len(matches):
@@ -102,9 +102,11 @@ class KConfigChoice(object):
             else:
                 raise ValueError(f"No option {name} found for {self.prompt} ({self.values!r})")
         elif prompt:
+            if type(prompt) is str:
+                prompt = (prompt,)
             for choice in self._choice.syms:
                 for node in choice.nodes:
-                    if node.prompt[0] == prompt:
+                    if node.prompt[0] in prompt:
                         choice.set_value(2)
                         return
             raise ValueError(f"No option {prompt} found for {self.prompt} ({self.prompts()!r}")

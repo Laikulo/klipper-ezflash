@@ -32,6 +32,9 @@ class Configurator(object):
 
     def set_arch(self, arch):
         # Arch is pretty easy to deal with, since it is always the same prompt, but the choice is unnamed
+        if arch.startswith("Raspberry Pi RP2040"):
+            # TODO: Do this based on klipper version
+            arch = "Raspberry Pi RP2040/RP235x"
         self.kconfig.choice(prompt="Micro-controller Architecture").select(prompt=arch)
 
     def set_mcu(self, mcu):
@@ -89,6 +92,17 @@ class Configurator(object):
             raise ValueError(f"Could not select flash {flash}, is it supported by this version of klipper?")
         raise RuntimeError(f'This MCU does not support setting the flash type')
 
+    def interfaces_by_type(self, if_type):
+        return [i for i in self.get_interfaces() if i.if_type == if_type]
+
+    def interface_by_type(self, if_type, first=False, required=True):
+        ifs = self.interfaces_by_type(if_type)
+        if required and not ifs:
+            raise ValueError(f"No interface of type {if_type} available")
+        if len(ifs) > 1 and not first:
+            raise ValueError(f"More than one {if_type} present")
+        return ifs[0]
+
     def get_interfaces(self):
         return self._board.interfaces
 
@@ -120,7 +134,7 @@ class Configurator(object):
     def set_interface(self, interface: BoardInterfaceDefinition):
         if interface.if_type == "USB":
             if not interface.pins:
-                self._get_comms_choice().select(prompt='USB')
+                self._get_comms_choice().select(prompt=('USB', 'USBSERIAL'))
             else:
                 self._get_comms_choice().select(prompt=f'USB (on {interface.pins['dm']}/{interface.pins['dp']})')
         elif interface.if_type == "CAN":
@@ -134,14 +148,22 @@ class Configurator(object):
             else:
                 self._get_comms_choice().select(prompt=f'CAN bus (on {interface.pins['rx']}/{interface.pins['tx']})')
         elif interface.if_type == "UART":
-            target_re = re.compile(f'^Serial \\(on US?ART[0-9]* {interface.pins['rx'].upper()}/{interface.pins['tx'].upper()}\\)')
-            for possible_comms in self._get_comms_choice().choices():
-                if target_re.match(possible_comms.nodes[0].prompt[0]):
-                    possible_comms.set_value(2)
+            txp = interface.pins['tx'].upper()
+            rxp = interface.pins['rx'].upper()
+            target_re = re.compile(f'^(?:Serial \\(on )?US?ART[0-9]*(?: on)? +(?:{rxp}/{txp}|{txp}/{rxp})\\)?', re.IGNORECASE)
+            possible_comms = self._get_comms_choice().choices()
+            for possible_comm in self._get_comms_choice().choices():
+                if target_re.match(possible_comm.nodes[0].prompt[0]):
+                    possible_comm.set_value(2)
                     return
-            raise ValueError(f"Serial not found {interface!r}")
+            raise ValueError(f"KConfig option not found on {self._board} {interface!r} using regex {target_re.pattern} from {[ c.nodes[0].prompt[0]  for c in possible_comms]}")
         else:
             raise ValueError(f"Interface type {interface.if_type} is not supported")
+
+    def select_interface_by_type(self, if_type):
+        self.set_interface(
+            self.interface_by_type(if_type)
+        )
 
     def set_baud(self, baud):
         """

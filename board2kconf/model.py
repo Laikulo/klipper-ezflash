@@ -4,7 +4,7 @@ import logging
 from functools import cached_property, cache
 from os import PathLike
 from pathlib import Path
-from typing import Union, Optional, Dict, TextIO
+from typing import Union, Optional, Dict, TextIO, List
 
 from .util import get_boards
 
@@ -119,7 +119,7 @@ class BoardDefinition(object):
         return cls(**opts)
 
     @cached_property
-    def interfaces(self):
+    def interfaces(self) -> List['BoardInterfaceDefinition']:
         interfaces = []
         if self.usb is not None:
             interfaces.append(BoardInterfaceDefinition.usb(self.usb))
@@ -136,7 +136,7 @@ class BoardCANDefinition(object):
     rx_pin: str
 
     @classmethod
-    def from_data(cls, data: Dict|str) -> 'BoardCANDefinition':
+    def from_data(cls, data: Union[Dict, str]) -> 'BoardCANDefinition':
         if type(data) is str:
             tok = data.split("/")
             return cls(
