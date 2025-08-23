@@ -6,6 +6,9 @@ from pathlib import Path
 import logging
 
 def main():
+
+    logging.basicConfig(level=logging.INFO)
+
     boards = BoardDefinition.get_all()
 
     klipper = find_klipper()
