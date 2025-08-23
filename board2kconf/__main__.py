@@ -5,6 +5,8 @@ from __future__ import print_function
 ## This is to ensure that we exit cleanly and inform the user even if we get started by ancient python
 
 import sys
+
+from board2kconf.util import KlipperVersion, find_klipper
 from . import PROJECT_MINIMUM_PYTHON, PROJECT_NAME
 
 if sys.version_info < PROJECT_MINIMUM_PYTHON:
@@ -32,6 +34,11 @@ logger = logging.getLogger("klipper-mcu-configs")
 def main():
     logging.basicConfig(level=logging.INFO)
     logger.warning("THIS IS WIP TOOLING, IT MAY EAT YOUR CAT. BE WARNED.")
+
+    kv = KlipperVersion.from_klipper(find_klipper())
+    if kv < (12, 405):
+        raise RuntimeError("THis version of klipper is not supported")
+
 
     ui = UI()
     ui.launch()
