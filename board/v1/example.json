@@ -377,6 +377,105 @@
       }
     }
   },
+  "MMU Boards": {
+    "BTT": {
+      "MMB": {
+        "MMB v1.0 and V1.1": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": "PA11/PA12"
+        },
+        "MMB v2.0": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PD0/PD1",
+          "usb": "PA11/PA12"
+        }
+      }
+    },
+    "Iski's Tech": {
+      "AFC-Lite for Boxturtle": {
+        "AFC-Lite for Boxturtle": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        }
+      },
+      "AFC Pro": {
+        "AFC Pro": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": "PA11/PA12",
+          "status": "PC10"
+        }
+      }
+    },
+    "Mellow": {
+      "FLY ERCF": {
+        "FLY ERCF v1.0": {
+          "mcu": {
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "gpio4",
+            "can_tx": "gpio5"
+          },
+          "usb": {}
+        },
+        "FLY ERCF v2.0": {
+          "mcu": {
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "gpio1",
+            "can_tx": "gpio0"
+          },
+          "rs232": {
+            "tx": "gpio0",
+            "rx": "gpio1"
+          },
+          "usb": {},
+          "status": "gpio17"
+        }
+      },
+      "FLY MMU": {
+        "FLY MMU": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "can": "PB8/PB9",
+          "uart": {
+            "tx_pin": "PA9",
+            "rx_pin": "PA10"
+          },
+          "usb": "PA11/PA12",
+          "status": "!PA15"
+        }
+      }
+    }
+  },
   "Toolheads": {
     "BTT": {
       "EBB36": {
@@ -785,18 +884,6 @@
       }
     },
     "Iski's Tech": {
-      "AFC-Lite for Boxturtle": {
-        "AFC-Lite for Boxturtle": {
-          "mcu": {
-            "architecture": "STMicroelectronics STM32",
-            "mcu": "STM32H723",
-            "clock": "25MHz"
-          },
-          "can": "PB8/PB9",
-          "usb": "PA11/PA12",
-          "status": "PA13"
-        }
-      },
       "Nevermore PCBs": {
         "Nevermore Max 2 PCB": {
           "mcu": {
