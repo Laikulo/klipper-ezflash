@@ -753,6 +753,18 @@
           "usb": {}
         }
       }
+    },
+    "Provok3d": {
+      "Nozzle ADXL": {
+        "Nozzle ADXL v1": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F072",
+            "clock": "INTERNAL"
+          },
+          "usb": {}
+        }
+      }
     }
   },
   "Other Boards": {
@@ -826,6 +838,18 @@
           },
           "usb": "PA11/PA12",
           "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
+        }
+      }
+    },
+    "Provok3d": {
+      "Therm^2": {
+        "Therm^2": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F042",
+            "clock": "12MHz"
+          },
+          "usb": "PA9/PA10"
         }
       }
     },
