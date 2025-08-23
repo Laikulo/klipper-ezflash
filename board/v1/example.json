@@ -361,6 +361,18 @@
             "can_tx": "PB9"
           },
           "usb": "PA11/PA12"
+        },
+        "FLY Super8 Pro": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_rx": "PB8",
+            "can_tx": "PB9"
+          },
+          "usb": "PA11/PA12"
         }
       }
     }
