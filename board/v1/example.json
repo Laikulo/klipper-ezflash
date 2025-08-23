@@ -2,7 +2,7 @@
   "Mainboards": {
     "BTT": {
       "Kraken": {
-        "Kraken_V1.0": {
+        "Kraken V1.0": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -16,8 +16,8 @@
           "status": "PA14"
         }
       },
-      "Manta_E3EZ": {
-        "Manta_E3EZ": {
+      "Manta E3EZ": {
+        "Manta E3EZ": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -31,8 +31,8 @@
           "status": "PC7"
         }
       },
-      "Manta_M5P": {
-        "Manta_M5P_v1.0": {
+      "Manta M5P": {
+        "Manta M5P v1.0": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -45,8 +45,8 @@
           "usb": "PA11/PA12"
         }
       },
-      "Manta_M8P": {
-        "Manta_M8P_v1.1": {
+      "Manta M8P": {
+        "Manta M8P v1.1": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -59,7 +59,7 @@
           "usb": "PA11/PA12",
           "status": "PA13"
         },
-        "Manta_M8P_v2.0": {
+        "Manta M8P v2.0": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -73,7 +73,7 @@
         }
       },
       "Octopus": {
-        "Octopus-F446": {
+        "Octopus with F446": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -86,7 +86,7 @@
           "usb": "PA11/PA12",
           "status": "PA13"
         },
-        "Octopus-F429": {
+        "Octopus with F429": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H429",
@@ -99,7 +99,7 @@
           "usb": "PA11/PA12",
           "status": "PA13"
         },
-        "Octopus-F407": {
+        "Octopus with F407": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
@@ -112,7 +112,7 @@
           "usb": "PA11/PA12",
           "status": "PA13"
         },
-        "Octopus-H723": {
+        "Octopus with H723": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -126,8 +126,8 @@
           "status": "PA13"
         }
       },
-      "Octopus_Max_EZ": {
-        "Octopus_Max_EZ": {
+      "Octopus Max EZ": {
+        "Octopus Max EZ": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -141,8 +141,8 @@
           "status": "PA14"
         }
       },
-      "Octopus_Pro": {
-        "Octopus_Pro_v1.1": {
+      "Octopus Pro": {
+        "Octopus Pro v1.1": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -156,8 +156,8 @@
           "status": "PA13"
         }
       },
-      "SKR_Mini_E3": {
-        "SKR_Mini_E3_v3.0": {
+      "SKR Mini E3": {
+        "SKR Mini E3 v3.0": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -168,8 +168,8 @@
           "status": "PD8"
         }
       },
-      "SKR_Pico": {
-        "SKR_Pico": {
+      "SKR Pico": {
+        "SKR Pico": {
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -182,8 +182,8 @@
           "usb": {}
         }
       },
-      "SKR_3": {
-        "SKR_3": {
+      "SKR-3": {
+        "SKR-3": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -195,7 +195,7 @@
           },
           "usb": "PA11/PA12"
         },
-        "SKR_3_EZ": {
+        "SKR-3 EZ": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -209,7 +209,7 @@
         }
       },
       "SKRat": {
-        "SKRat_v1.0": {
+        "SKRat v1.0": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -226,7 +226,7 @@
     },
     "Fystec": {
       "Spider": {
-        "Spider_v1.0": {
+        "Spider v1.0": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -239,7 +239,7 @@
           "usb": "PA11/PA12",
           "status": "PD3"
         },
-        "Spider_v2.2": {
+        "Spider v2.2": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -252,7 +252,7 @@
           "usb": "PA11/PA12",
           "status": "PD3"
         },
-        "Spider_v2.3": {
+        "Spider v2.3": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -265,7 +265,7 @@
           "usb": "PA11/PA12",
           "status": "PD3"
         },
-        "Spider_v3.0": {
+        "Spider v3.0": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -282,7 +282,7 @@
     },
     "LDO": {
       "Leviathan": {
-        "Leviathan_v1.2": {
+        "Leviathan v1.2": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -299,7 +299,7 @@
           "usb": "PA11/PA12",
           "status": "PE1"
         },
-        "Leviathan_v1.3": {
+        "Leviathan v1.3": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H743",
@@ -320,7 +320,7 @@
     },
     "MKS": {
       "Monster8": {
-        "Monster8_v2": {
+        "Monster8 v2": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
@@ -349,8 +349,8 @@
           "usb": "PA11/PA12"
         }
       },
-      "FLY_Super8": {
-        "FLY_Super8": {
+      "FLY Super8": {
+        "FLY Super8": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
@@ -368,7 +368,7 @@
   "Toolheads": {
     "BTT": {
       "EBB36": {
-        "EBB36v1.2": {
+        "EBB36 v1.2": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -380,7 +380,7 @@
         }
       },
       "EBB42": {
-        "EBB42v1.2": {
+        "EBB42 v1.2": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -391,8 +391,8 @@
           "status": "PA13"
         }
       },
-      "MMB_CAN": {
-        "MMB_CAN_v1.0": {
+      "MMB CAN": {
+        "MMB CAN v1.0": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -414,8 +414,8 @@
           "status": "PA13"
         }
       },
-      "SB2209-RP2040": {
-        "SB2209-RP2040": {
+      "SB2209 (RP2040)": {
+        "SB2209 (RP2040)": {
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -453,8 +453,8 @@
       }
     },
     "Fysetc": {
-      "SB-Combo": {
-        "SB-Combo_v2": {
+      "SB Combo": {
+        "SB Combo v2": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
@@ -493,7 +493,7 @@
     },
     "MKS": {
       "THR36": {
-        "THR36_v1.0": {
+        "THR36 v1.0": {
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -532,8 +532,8 @@
       }
     },
     "OrbiterProjects": {
-      "Orbitool_O2": {
-        "Orbitool_O2": {
+      "Orbitool O2": {
+        "Orbitool O2": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32f042",
@@ -545,8 +545,8 @@
           }
         }
       },
-      "Orbitool_SO3": {
-        "Orbitool_SO3": {
+      "Orbitool SO3": {
+        "Orbitool SO3": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32f042",
@@ -561,7 +561,7 @@
     },
     "Mellow": {
       "SB2040": {
-        "SB2040v1": {
+        "SB2040 v1": {
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -574,7 +574,7 @@
           "usb": {},
           "status": "gpio24"
         },
-        "SB2040v2": {
+        "SB2040 v2": {
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -587,7 +587,7 @@
           "usb": {},
           "status": "gpio24"
         },
-        "SB2040v3": {
+        "SB2040 v3": {
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -606,7 +606,7 @@
         }
       },
       "SHT36": {
-        "SHT36v1": {
+        "SHT36 v1": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
@@ -616,7 +616,7 @@
           "usb": "PA11/PA12",
           "status": "!PC13"
         },
-        "SHT36v2-F702": {
+        "SHT36 v2 with F702": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
@@ -626,7 +626,7 @@
           "usb": "PA11/PA12",
           "status": "!PC13"
         },
-        "SHT36v2-F103": {
+        "SHT36 v2 with F103": {
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F103",
@@ -636,7 +636,7 @@
           "usb": "PA11/PA12",
           "status": "!PC13"
         },
-        "SHT36v3": {
+        "SHT36 v3": {
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -650,7 +650,6 @@
             "tx": "gpio0",
             "rx": "gpio1"
           },
-          "usb": {},
           "status": "!gpio5"
         }
       },
