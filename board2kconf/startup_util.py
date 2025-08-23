@@ -237,7 +237,7 @@ def check_dependencies() -> bool:
     for dep in my_deps:
         print(f'{dep}:\n'
               f'  Installed: {DistVersion.installed(dep)!r}\n')
-    raise SystemExit(0)
+    warnings.warn("Dep checking not enabled")
     return True
 
 def parse_specifier(spec: str):
