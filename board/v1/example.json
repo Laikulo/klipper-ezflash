@@ -663,6 +663,18 @@
             "rx": "gpio1"
           },
           "status": "!gpio5"
+        },
+        "SHT36 Pro": {
+          "mcu": {
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "can": {
+            "can_rx": "gpio4",
+            "can_tx": "gpio5"
+          },
+          "status": "!gpio13"
         }
       },
       "SHT42": {
