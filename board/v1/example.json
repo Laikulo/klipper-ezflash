@@ -804,6 +804,19 @@
         }
       }
     },
+    "Klipper Expander": {
+      "Klipper Expander": {
+        "Klipper Expander": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F042",
+            "clock": "INTERNAL"
+          },
+          "usb": "PA11/PA12",
+          "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
+        }
+      }
+    },
     "Replimat Labs": {
       "DragonDinghy": {
         "DragonDinghy": {
