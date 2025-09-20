@@ -867,6 +867,19 @@
     }
   },
   "Other Boards": {
+    "3DAixperts": {
+      "Skirt Button PCB": {
+        "Skirt Button PCB": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F072",
+            "clock": "8MHz"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA14"
+        }
+      }
+    },
     "Fysetc": {
       "Hexa Distro Fusion": {
         "Hexa Distro Fusion": {
