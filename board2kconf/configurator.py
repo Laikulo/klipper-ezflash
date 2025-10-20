@@ -67,7 +67,7 @@ class Configurator(object):
         # Special case "INTERNAL"
         if freq == "INTERNAL":
             freq_choice.select(prompt="Internal Clock")
-            logger.debug(f'Internal clock selected {freq_choice:r}')
+            logger.debug(f'Internal clock selected {freq_choice!r}')
             return
         # Frequency should be in the form XXMhz or XXKhz
         if matches := FREQ_IN_RE.match(freq):
