@@ -96,7 +96,7 @@ class KConfigChoice(object):
 
     def select(self, name: str = None, prompt: Union[str,Iterable[str],None] = None):
         if name:
-            matches = [x for x in self._choice.syms if x.name == name]
+            matches = [x for x in self._choice.syms if x.name.lower() == name.lower()]
             if len(matches):
                 matches[0].set_value(2)
             else:
@@ -104,9 +104,10 @@ class KConfigChoice(object):
         elif prompt:
             if type(prompt) is str:
                 prompt = (prompt,)
+            prompt = set(s.lower() for s in prompt)
             for choice in self._choice.syms:
                 for node in choice.nodes:
-                    if node.prompt[0] in prompt:
+                    if node.prompt[0].lower() in prompt:
                         choice.set_value(2)
                         return
             raise ValueError(f"No option {prompt} found for {self.prompt} ({self.prompts()!r}")
