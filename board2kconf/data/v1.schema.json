@@ -180,9 +180,6 @@
                 "type": "string"
               },
               "minProperties": 1
-            },
-            "extra": {
-              "additionalProperties": true
             }
           }
         }
