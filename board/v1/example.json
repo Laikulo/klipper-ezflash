@@ -799,7 +799,8 @@
             "mcu": "rp2040",
             "flash": "w25q080"
           },
-          "usb": {}
+          "usb": {},
+          "status": "gpio25"
         }
       }
     },
