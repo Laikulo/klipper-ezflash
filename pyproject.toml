@@ -11,7 +11,8 @@ authors = [
 dynamic = ["version"]
 dependencies = [
     'kconfiglib-klipper',
-    'urwid'
+    'vindauga',
+    'click'
 ]
 
 [tool.setuptools_scm]
@@ -26,3 +27,4 @@ include = ["board2kconf", "board2kconf.*"]
 "ezflash-check-board-data" = "board2kconf.scripts.test_all_boards:main"
 "ezflash-board2kconf" = "board2kconf.scripts.board2kconf:main"
 "ezflash" = "board2kconf.__main__:main"
+"ezflash-db" = "board2kconf.scripts.board_db_util:bdb"

@@ -32,7 +32,7 @@ logger = logging.getLogger("klipper-mcu-configs")
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    #logging.basicConfig(level=logging.INFO)
     logger.warning("THIS IS WIP TOOLING, IT MAY EAT YOUR CAT. BE WARNED.")
 
     kv = KlipperVersion.from_klipper(find_klipper())

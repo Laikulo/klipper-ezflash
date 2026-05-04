@@ -1,30 +1,22 @@
-import urwid
 from .. import PROJECT_NAME, PROJECT_VERSION
 
-PALETTE = (
-    (None, "black", "light gray"),
-    ("select", "light gray", "black")
-)
+from vindauga.widgets.application import Application
+from vindauga.menus.menu_bar import MenuBar
+from vindauga.menus.menu_bar import MenuItem
+from vindauga.constants.keys import kbNoKey
 
-class UI(object):
+class KEZFApplication(Application):
+    def initMenuBar(self, bounds: Rect) -> MenuBar:
+        bounds.bottomRight.y = bounds.topLeft.y + 1
+        menuBar = MenuBar(bounds, MenuItem('Exit', 0, kbNoKey))
+        return menuBar
 
+
+
+class UI:
     def __init__(self):
-        self._header_text = urwid.Text(f"{PROJECT_NAME} v{PROJECT_VERSION}")
-        self._body = urwid.Filler(
-            urwid.Button("Go!")
-        )
-        self._top_widget = urwid.Frame(header=self._header_text, body=self._body)
-        self._loop = urwid.MainLoop(
-            widget=self._top_widget,
-            palette=PALETTE,
-            unhandled_input=self._on_unhandled
+        self._app=KEZFApplication()
 
-        )
-
-    def _on_unhandled(_, in_data) -> bool:
-        return False
 
     def launch(self):
-        self._loop.run()
-
-
+        self._app.run()

@@ -29,6 +29,21 @@ class BoardDatabase(object):
                         return variant_matches[0]
         raise ValueError(f"No board data for {manufacturer}/{model}/{variant}")
 
+    @cache
+    def models_from_manufacturer(self, manufacturer):
+        return [x for x in self._boards if x.manufacturer == manufacturer]
+
+    @cache
+    def variants_from_mfr_board(self, manufacturer, model):
+        return [x for x in self._boards if x.manufacturer == manufacturer and x.model == model]
+
+    @cached_property
+    def manufacturers(self):
+        return list(set([x.manufacturer for x in self._boards]))
+
+    def get_all(self):
+        return self._boards.copy()
+
 @dataclasses.dataclass
 class BoardDefinition(object):
     manufacturer: str
@@ -43,6 +58,19 @@ class BoardDefinition(object):
 
     def __str__(self):
         return f"{self.manufacturer}/{self.model}/{self.variant}"
+    
+    def pretty(self):
+        pstr = f"{self.manufacturer} {self.model}"
+        if self.variant:
+            pstr += f" ({self.variant})"
+        pstr += "\n"
+        pstr += "MCU: "
+        pstr += self.mcu.pretty() or "WIP"
+        pstr += "\nInterfaces:\n"
+        pstr += "\n".join(iface.pretty() for iface in self.interfaces)
+        return pstr
+
+
 
     @classmethod
     def get_one_from_file(cls, file: PathLike, category: str, manufacturer: str, model: str, variant: str) -> 'BoardDefinition':
@@ -175,6 +203,16 @@ class BoardMCUDefinition(object):
     clock: Optional[str] = None,
     flash: Optional[str] = None
 
+    def pretty(self):
+        pstr =  f"{self.arch} {self.mcu}"
+        if self.clock:
+            pstr += f" with {self.clock} external clock"
+        else:
+            pstr += f" using internal clock"
+        if self.flash:
+            pstr += f" and {self.flash} flash"
+        return pstr
+
     @classmethod
     def from_data(cls, data: Dict) -> 'BoardMCUDefinition':
         return cls(
@@ -191,6 +229,9 @@ class BoardInterfaceDefinition(object):
 
     def __str__(self) -> str:
         return f"{self.if_type.upper()}"
+
+    def pretty(self):
+        return f"{self.if_type} on {",".join(self.pins.values())}"
 
     @classmethod
     def usb(cls, spec):
