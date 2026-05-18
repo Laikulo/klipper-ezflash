@@ -4,6 +4,8 @@ from pathlib import Path
 
 from importlib.resources import files
 
+from typing import Collection, Any
+
 _COMMON_KLIPPER_LOCATIONS = [
     "~/klipper",
     "~/Klipper",
@@ -38,3 +40,21 @@ def get_boards():
     raise RuntimeError("Could not find the board database")
 
 
+def cajole_collection(in_val: Any):
+    if type(in_val) is str:
+        return in_val
+    elif (in_val is None) or (isinstance(in_val, Collection)):
+        return in_val
+    else:
+        return (in_val,)
+
+
+@cache
+def table_munge(key: str, table):
+    """
+    Given a key, and a tuple[tuple[str]], return the first tuple that contains the string, otherwise return the string
+    """
+    for entry in table:
+        if key in entry:
+            return entry
+    return key

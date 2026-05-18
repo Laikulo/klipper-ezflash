@@ -1,9 +1,11 @@
 import os
 from os import PathLike
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Collection
 
 from kconfiglib import Kconfig as KCLKConfig, Choice as KCLChoice, Symbol as KCLSymbol, BOOL as KCL_BOOL
+
+from .util import cajole_collection
 
 
 class KConfig(object):
@@ -34,17 +36,26 @@ class KConfig(object):
         return [x for x in self.kcl.unique_choices if (allow_invisible or x.visibility != 0)]
 
     def choice(self, name: str = None, prompt: str = None, allow_invisible: bool = False) -> Optional['KConfigChoice']:
+        name=cajole_collection(name)
+        prompt=cajole_collection(prompt)
         if name:
-            if matches := [x for x in self._choices(allow_invisible) if x.prompt == name]:
+            if matches := [x for x in self._choices(allow_invisible) if x.prompt in name]:
                 if len(matches) > 1:
                     raise ValueError(f"More than one choice definition defined for {name}")
                 else:
                     return KConfigChoice(self, matches[0])
+            else:
+                raise KeyError(f"Did not find a choice with name {name}")
         elif prompt:
             for choice in self._choices(allow_invisible):
                 for node in choice.nodes:
-                    if node.prompt[0] == prompt:
+                    if node.prompt[0] in prompt:
                         return KConfigChoice(self, choice)
+            else:
+                for choice in self._choices(allow_invisible):
+                    for node in choice.nodes:
+                        print(node.prompt[0])
+                raise KeyError(f"Did not find a choice with prompt(label) {prompt}")
         else:
             raise ValueError(f"No search for choice specified. This is a bug and should not happen")
         return None
@@ -75,10 +86,12 @@ class KConfigChoice(object):
     def prompt(self):
         try:
             return self._choice.nodes[0].prompt[0]
+
         except IndexError:
             return "Unknown Choice"
 
     def values(self) -> List[str]:
+        print(prompt)
         return [x.name for x in self._choice.syms]
 
     def prompts(self) -> List[str]:
@@ -95,16 +108,19 @@ class KConfigChoice(object):
         return self._choice.syms
 
     def select(self, name: str = None, prompt: str = None):
-        if name:
-            matches = [x for x in self._choice.syms if x.name == name]
+        name=cajole_collection(name)
+        prompt=cajole_collection(prompt)
+
+        if name is not None:
+            matches = [x for x in self._choice.syms if x.name in name]
             if len(matches):
                 matches[0].set_value(2)
             else:
                 raise ValueError(f"No option {name} found for {self.prompt} ({self.values!r})")
-        elif prompt:
+        elif prompt is not None:
             for choice in self._choice.syms:
                 for node in choice.nodes:
-                    if node.prompt[0] == prompt:
+                    if node.prompt[0] in prompt:
                         choice.set_value(2)
                         return
             raise ValueError(f"No option {prompt} found for {self.prompt} ({self.prompts()!r}")

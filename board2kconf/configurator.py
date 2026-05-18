@@ -7,9 +7,18 @@ from typing import Optional
 
 from .kconfig import KConfig, KConfigChoice
 from .model import BoardDefinition, BoardInterfaceDefinition
+from .util import table_munge
 
 logger = logging.getLogger(__name__)
 FREQ_IN_RE=re.compile('([0-9]+)([MK]hz)', flags=re.IGNORECASE)
+
+_ARCH_MUNGES = (
+        ('rp2040', 'rp235x', 'Raspberry Pi RP2040', 'Raspberry Pi RP2040/RP235x'),
+)
+
+_PROMPT_MUNGES = (
+        ('Communication interface', 'Communications interface'),
+)
 
 class Configurator(object):
     def __init__(self, klipper_path: PathLike, board: BoardDefinition):
@@ -31,6 +40,8 @@ class Configurator(object):
             self.set_flash(flash)
 
     def set_arch(self, arch):
+        # Despite what the below says, we have to deal with differeing titles for some arches
+        arch=table_munge(arch, _ARCH_MUNGES)
         # Arch is pretty easy to deal with, since it is always the same prompt, but the choice is unnamed
         self.kconfig.choice(prompt="Micro-controller Architecture").select(prompt=arch)
 
@@ -63,8 +74,8 @@ class Configurator(object):
             raise ValueError('Frequency cannot be set for this MCU')
         # Special case "INTERNAL"
         if freq == "INTERNAL":
-            freq_choice.select(prompt="Internal Clock")
-            logger.debug(f'Internal clock selected {freq_choice:r}')
+            freq_choice.select(prompt="Internal clock")
+            logger.debug(f'Internal clock selected {freq_choice}')
             return
         # Frequency should be in the form XXMhz or XXKhz
         if matches := FREQ_IN_RE.match(freq):
@@ -96,7 +107,12 @@ class Configurator(object):
     # TODO: on init, determin which interface is active (from defaults) and set as active here.
 
     def _get_comms_choice(self):
-        return self.kconfig.choice(prompt="Communication interface")
+        return self.kconfig.choice(prompt=(
+            "Communication interface",
+            "Communications interface",
+            "Communication Interface",
+            "Communications Interface",
+            ))
 
     def supports_canbridge(self):
         # Can bridge requires both USB and CAN
@@ -120,7 +136,7 @@ class Configurator(object):
     def set_interface(self, interface: BoardInterfaceDefinition):
         if interface.if_type == "USB":
             if not interface.pins:
-                self._get_comms_choice().select(prompt='USB')
+                self._get_comms_choice().select(prompt=('USB', 'USBSERIAL'))
             else:
                 self._get_comms_choice().select(prompt=f'USB (on {interface.pins['dm']}/{interface.pins['dp']})')
         elif interface.if_type == "CAN":
@@ -134,7 +150,9 @@ class Configurator(object):
             else:
                 self._get_comms_choice().select(prompt=f'CAN bus (on {interface.pins['rx']}/{interface.pins['tx']})')
         elif interface.if_type == "UART":
-            target_re = re.compile(f'^Serial \\(on US?ART[0-9]* {interface.pins['rx'].upper()}/{interface.pins['tx'].upper()}\\)')
+            pin_spec = f"({interface.pins['rx'].upper()}/{interface.pins['tx'].upper()}|" \
+                       f"{interface.pins['tx'].upper()}/{interface.pins['rx'].upper()})"
+            target_re = re.compile(f'^(Serial \\(?on )?US?ART[0-9]* (on )?{pin_spec}\\)?')
             for possible_comms in self._get_comms_choice().choices():
                 if target_re.match(possible_comms.nodes[0].prompt[0]):
                     possible_comms.set_value(2)

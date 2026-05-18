@@ -5,6 +5,8 @@ from pathlib import Path
 
 import logging
 
+_DIE_FAST=False
+
 def main():
     boards = BoardDefinition.get_all()
 
@@ -19,8 +21,12 @@ def main():
                 try:
                     config.set_interface(i)
                 except Exception as e:
+                    if _DIE_FAST:
+                        raise e
                     failures.append(f"{board}/{i}: {e!r}")
         except Exception as e:
+            if _DIE_FAST:
+                raise e
             failures.append(f"{board}: {e!r}")
 
     if failures:
