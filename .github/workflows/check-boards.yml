@@ -2,7 +2,20 @@
 name: Check board definitions
 on: [push]
 jobs:
-  check-board-definitions:
+  schema:
+    name: Check boardfile schema
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v6
+      - name: setup jsonschema
+        run: |
+          sudo apt-get update && \
+          sudo apt-get -y install python3-jsonschema
+      - name: check schema
+        run:
+          jsonschema -i "$GITHUB_WORKSPACE/board/v1/example.json" "$GITHUB_WORKSPACE/board/v1/example.schema.json"
+  verify:
+    name: Verify config viability
     runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v6
