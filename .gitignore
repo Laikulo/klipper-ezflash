@@ -1,2 +1,8 @@
+# Python/Pypi
 .venv/
 *.egg-info/
+__pycache__
+*.pyc
+
+# Editors
+*.swp

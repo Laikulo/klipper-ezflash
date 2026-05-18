@@ -175,6 +175,10 @@
                 }
               ]
             },
+            "optional_features": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
             "klipper_options": {
               "additionalProperties": {
                 "type": "string"

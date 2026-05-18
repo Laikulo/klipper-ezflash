@@ -1,0 +1,39 @@
+---
+name: Check board definitions
+on: [push]
+jobs:
+  schema:
+    name: Check boardfile schema
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v6
+      - name: setup jsonschema
+        run: |
+          sudo apt-get update && \
+          sudo apt-get -y install python3-jsonschema
+      - name: check schema
+        run:
+          jsonschema -i "$GITHUB_WORKSPACE/board/v1/example.json" "$GITHUB_WORKSPACE/board/v1/example.schema.json"
+  verify:
+    name: Verify config viability
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: klipper-ezflash
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          pip-install: klipper-ezflash/.
+      - name: klipper checkout
+        uses: actions/checkout@v6
+        with:
+          repository: klipper3d/klipper
+          filter: 'blob:none'
+          path: klipper
+      - name: Check board data (embedded)
+        run: |
+          KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" check_kboards
+      - name: Check board data (external)
+        run: |
+          KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" KBOARD_BOARDS_PATH="$GITHUB_WORKSPACE/klipper-ezflash/board/v1/example.json" check_kboards

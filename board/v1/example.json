@@ -862,7 +862,7 @@
             "mcu": "STM32F072",
             "clock": "INTERNAL"
           },
-          "usb": {}
+          "usb": "PA11/PA12"
         }
       }
     }
