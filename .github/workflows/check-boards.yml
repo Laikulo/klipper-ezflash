@@ -1,0 +1,24 @@
+---
+name: Check board definitions
+on: [push]
+jobs:
+  check-board-definitions:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: klipper-ezflash
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          pip-install: klipper-ezflash/.
+      - name: klipper checkout
+        uses: actions/checkout@v6
+        with:
+          repository: klipper3d/klipper
+          filter: 'blob:none'
+          path: klipper
+      - name: Check board data
+        run: |
+          KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" check_kboards
+
