@@ -10,7 +10,7 @@ authors = [
 ]
 dynamic = ["version"]
 dependencies = [
-    'kconfiglib',
+    'kconfiglib-klipper',
     'urwid'
 ]
 
