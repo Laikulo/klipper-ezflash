@@ -18,7 +18,7 @@ def find_klipper():
         else:
             raise ValueError("Specified KBOARD_KLIPPER_PATH does not exist")
     for location in _COMMON_KLIPPER_LOCATIONS:
-        if (path := Path(location)).exists():
+        if (path := Path(location).expanduser()).exists():
             return path
     raise RuntimeError("Could not find the klipper checkout")
 
