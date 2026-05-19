@@ -6,11 +6,8 @@ from importlib.resources import files
 
 from typing import Collection, Any
 
-_COMMON_KLIPPER_LOCATIONS = [
-    "~/klipper",
-    "~/Klipper",
-    "/usr/src/klipper"
-]
+_COMMON_KLIPPER_LOCATIONS = ["~/klipper", "~/Klipper", "/usr/src/klipper"]
+
 
 @cache
 def find_klipper():
@@ -25,6 +22,7 @@ def find_klipper():
             return path
     raise RuntimeError("Could not find the klipper checkout")
 
+
 def get_boards():
     if override_path := os.environ.get("KBOARD_BOARDS_PATH"):
         path = Path(override_path)
@@ -33,7 +31,7 @@ def get_boards():
         else:
             raise ValueError("Specified KBOARD_BOARDS_PATH does not exist")
     try:
-        return files('board2kconf.data').joinpath("boards.json").open("r")
+        return files("board2kconf.data").joinpath("boards.json").open("r")
     except (FileNotFoundError, ModuleNotFoundError):
         pass
     # Try other options here

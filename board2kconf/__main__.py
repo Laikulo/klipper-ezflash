@@ -11,6 +11,7 @@ import urwid
 
 logger = logging.getLogger("klipper-mcu-configs")
 
+
 def main():
     logging.basicConfig(level=logging.INFO)
 
@@ -18,5 +19,5 @@ def main():
     ui.launch()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

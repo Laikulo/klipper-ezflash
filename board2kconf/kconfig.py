@@ -3,13 +3,17 @@ from os import PathLike
 from pathlib import Path
 from typing import List, Optional, Collection
 
-from kconfiglib import Kconfig as KCLKConfig, Choice as KCLChoice, Symbol as KCLSymbol, BOOL as KCL_BOOL
+from kconfiglib import (
+    Kconfig as KCLKConfig,
+    Choice as KCLChoice,
+    Symbol as KCLSymbol,
+    BOOL as KCL_BOOL,
+)
 
 from .util import cajole_collection
 
 
 class KConfig(object):
-
     def __init__(self, srctree: PathLike):
         self.srctree = Path(srctree)
         self.kcl = self._get_kcl()
@@ -17,7 +21,7 @@ class KConfig(object):
     def _get_kcl(self):
         old_env = os.environ.copy()
         os.environ["srctree"] = str(self.srctree.absolute())
-        kc = KCLKConfig(filename='src/Kconfig')
+        kc = KCLKConfig(filename="src/Kconfig")
         os.environ = old_env
         return kc
 
@@ -30,18 +34,30 @@ class KConfig(object):
         return [KConfigSymbol(self, x) for x in self._symbols()]
 
     def _symbols(self, allow_invisible: bool = False):
-        return [x for x in self.kcl.unique_defined_syms if (allow_invisible or x.visibility != 0) and not x.choice]
+        return [
+            x
+            for x in self.kcl.unique_defined_syms
+            if (allow_invisible or x.visibility != 0) and not x.choice
+        ]
 
     def _choices(self, allow_invisible: bool = False):
-        return [x for x in self.kcl.unique_choices if (allow_invisible or x.visibility != 0)]
+        return [
+            x for x in self.kcl.unique_choices if (allow_invisible or x.visibility != 0)
+        ]
 
-    def choice(self, name: str = None, prompt: str = None, allow_invisible: bool = False) -> Optional['KConfigChoice']:
-        name=cajole_collection(name)
-        prompt=cajole_collection(prompt)
+    def choice(
+        self, name: str = None, prompt: str = None, allow_invisible: bool = False
+    ) -> Optional["KConfigChoice"]:
+        name = cajole_collection(name)
+        prompt = cajole_collection(prompt)
         if name:
-            if matches := [x for x in self._choices(allow_invisible) if x.prompt in name]:
+            if matches := [
+                x for x in self._choices(allow_invisible) if x.prompt in name
+            ]:
                 if len(matches) > 1:
-                    raise ValueError(f"More than one choice definition defined for {name}")
+                    raise ValueError(
+                        f"More than one choice definition defined for {name}"
+                    )
                 else:
                     return KConfigChoice(self, matches[0])
             else:
@@ -57,10 +73,14 @@ class KConfig(object):
                         print(node.prompt[0])
                 raise KeyError(f"Did not find a choice with prompt(label) {prompt}")
         else:
-            raise ValueError(f"No search for choice specified. This is a bug and should not happen")
+            raise ValueError(
+                f"No search for choice specified. This is a bug and should not happen"
+            )
         return None
 
-    def symbol(self, name: str = None, prompt: str = None, allow_invisible: bool = False) -> Optional['KConfigSymbol']:
+    def symbol(
+        self, name: str = None, prompt: str = None, allow_invisible: bool = False
+    ) -> Optional["KConfigSymbol"]:
         if name:
             if matches := [x for x in self._symbols(allow_invisible) if x.name == name]:
                 if len(matches) > 1:
@@ -73,7 +93,9 @@ class KConfig(object):
                     if node.prompt[0] == prompt:
                         return KConfigSymbol(self, symbol)
         else:
-            raise ValueError(f"No search for symbol specified. This is a bug and should not happen")
+            raise ValueError(
+                f"No search for symbol specified. This is a bug and should not happen"
+            )
         return None
 
 
@@ -108,22 +130,26 @@ class KConfigChoice(object):
         return self._choice.syms
 
     def select(self, name: str = None, prompt: str = None):
-        name=cajole_collection(name)
-        prompt=cajole_collection(prompt)
+        name = cajole_collection(name)
+        prompt = cajole_collection(prompt)
 
         if name is not None:
             matches = [x for x in self._choice.syms if x.name in name]
             if len(matches):
                 matches[0].set_value(2)
             else:
-                raise ValueError(f"No option {name} found for {self.prompt} ({self.values!r})")
+                raise ValueError(
+                    f"No option {name} found for {self.prompt} ({self.values!r})"
+                )
         elif prompt is not None:
             for choice in self._choice.syms:
                 for node in choice.nodes:
                     if node.prompt[0] in prompt:
                         choice.set_value(2)
                         return
-            raise ValueError(f"No option {prompt} found for {self.prompt} ({self.prompts()!r}")
+            raise ValueError(
+                f"No option {prompt} found for {self.prompt} ({self.prompts()!r}"
+            )
         else:
             raise ValueError(f"No selection for {self.prompt}")
 
@@ -156,7 +182,9 @@ class KConfigSymbol(object):
             elif self._symbol.tri_value == 0:
                 return False
             else:
-                raise ValueError(f"Not a boolean {self._symbol.tri_value} for {self._symbol.name}")
+                raise ValueError(
+                    f"Not a boolean {self._symbol.tri_value} for {self._symbol.name}"
+                )
         else:
             return self._symbol.str_value
 
