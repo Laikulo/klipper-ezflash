@@ -334,7 +334,7 @@
         }
       }
     },
-    "Mellow3D": {
+    "Mellow": {
       "FLY-DP5": {
         "FLY-DP5": {
           "mcu": {
@@ -832,7 +832,7 @@
         }
       }
     },
-    "Mellow3D": {
+    "Mellow": {
       "Fly ADXL345": {
         "Fly ADXL345": {
           "mcu": {
