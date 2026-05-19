@@ -21,14 +21,15 @@ class UI(object):
 
 
     def main_menu(self):
-        self._dialog.set_background_title('Manu Menu')
+        self._dialog.set_background_title('Main Menu')
         return self._dialog.menu(
             "What would you like to do?",
             choices=[
                 ('boardinfo', "Lookup information about a board"),
                 ('crash', "Intentionally crash"),
                 ('exit', "Exit")
-            ]
+            ],
+            cancel_label="Quit"
         )
 
 
@@ -40,6 +41,7 @@ class UI(object):
             "Select manufacturer",
             choices=[(str(i),n) for i,n in enumerate(manufacturers)
             ],
+            no_tags=True
         )
         if code in (Dialog.CANCEL, Dialog.ESC):
             return None
@@ -52,6 +54,7 @@ class UI(object):
             "Select model",
             choices=[(str(i),n) for i,n in enumerate(mfr_models)
                      ],
+            no_tags=True
         )
         if code in (Dialog.CANCEL, Dialog.ESC):
             return None
@@ -65,6 +68,7 @@ class UI(object):
                 "Select variant",
                 choices=[(str(i),n) for i,n in enumerate(board_variants)
                          ],
+                no_tags=True
             )
             if code in (Dialog.CANCEL, Dialog.ESC):
                 return None
@@ -98,7 +102,12 @@ class UI(object):
 
     def launch(self):
         try:
-            self.menus()
+            code = self._dialog.yesno("This is WIP tooling.\n\nIt may eat your cat and/or firmware\nBe warned!",
+                                      defaultno=True,
+                                      yes_label="Risk It",
+                                      no_label="Quit")
+            if code == Dialog.OK:
+                self.menus()
         except KeyboardInterrupt:
             print("\033[H\033[2J")
             exit(0)
