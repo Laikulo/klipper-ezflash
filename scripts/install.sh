@@ -22,12 +22,14 @@ PKGLIST_TAB=(
 PKGS_DEBIAN=(
   [dialog]=dialog
   [python3]=python3-minimal
+  [pip]=python3-pip
   [git]=git
 )
 
 PKGS_FEDORA=(
   [dialog]=dialog
   [python3]=python3
+  [pip]=python3-pip
   [git]=git
 )
 
@@ -105,6 +107,7 @@ main() {
     exit 0
   fi
   ensure_command python3 2>&1 | dialog --progressbox "Dependency: python3" 30 80
+  ensure_command pip 2>&1 | dialog --progressbox "Dependency: pip" 30 80
   : "${HOME:?HOME is not set, not sure how that happened}"
   [[ -d $HOME/.ezf ]] || mkdir $HOME/.ezf
   build_venv "$HOME/.ezf/py" |& dialog --sleep 2 --progressbox "Python Environment" 30 80
