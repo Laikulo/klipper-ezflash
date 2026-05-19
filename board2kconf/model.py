@@ -210,10 +210,12 @@ class BoardMCUDefinition(object):
 
     def pretty(self):
         retstr = f"{self.arch} {self.mcu}"
-        if self.clock is not None:
+        if self.clock and self.flash:
+            retstr += f" with {self.clock} clock and {self.flash} flash"
+        elif self.clock:
             retstr += f" with {self.clock} clock"
-        if self.flash is not None:
-            retstr += f" and {self.flash} flash"
+        elif self.flash:
+            retstr += f" with {self.flash} flash"
         return retstr
 
 
