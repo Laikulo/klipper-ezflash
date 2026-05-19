@@ -400,6 +400,20 @@
         }
       }
     },
+    "Fysetc": {
+      "Chameleon X5": {
+        "Chameleon X5": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F407",
+            "clock": "12MHz"
+          },
+          "can": "PD0/PD1",
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        }
+      }
+    },
     "Iski's Tech": {
       "AFC-Lite for Boxturtle": {
         "AFC-Lite for Boxturtle": {
