@@ -11,13 +11,13 @@ import urwid
 
 logger = logging.getLogger("klipper-mcu-configs")
 
+
 def main():
     logging.basicConfig(level=logging.INFO)
-    logger.warning("THIS IS WIP TOOLING, IT MAY EAT YOUR CAT. BE WARNED.")
 
     ui = UI()
     ui.launch()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

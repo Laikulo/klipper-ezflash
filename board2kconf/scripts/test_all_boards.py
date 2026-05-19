@@ -5,7 +5,8 @@ from pathlib import Path
 
 import logging
 
-_DIE_FAST=False
+_DIE_FAST = False
+
 
 def main():
     boards = BoardDefinition.get_all()
@@ -35,8 +36,8 @@ def main():
             print(failure)
         raise SystemExit(1)
     else:
-       print("==== PASS ====")
+        print("==== PASS ====")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
-

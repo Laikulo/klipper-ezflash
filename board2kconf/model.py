@@ -10,8 +10,9 @@ from .util import get_boards
 
 logger = logging.getLogger(__name__)
 
+
 class BoardDatabase(object):
-    def __init__(self, source: TextIO|PathLike|None=None):
+    def __init__(self, source: TextIO | PathLike | None = None):
         if source is None:
             self._boards = list(BoardDefinition.read_from_stream(get_boards()))
         elif isinstance(source, PathLike):
@@ -22,34 +23,49 @@ class BoardDatabase(object):
     def get(self, manufacturer, model, variant):
         if mfr_matches := [x for x in self._boards if x.manufacturer == manufacturer]:
             if model_matches := [x for x in mfr_matches if x.model == model]:
-                if variant_matches := [x for x in model_matches if x.variant == variant]:
+                if variant_matches := [
+                    x for x in model_matches if x.variant == variant
+                ]:
                     if len(variant_matches) > 1:
                         raise ValueError("Duplicate board definition")
                     elif len(variant_matches) == 1:
                         return variant_matches[0]
         raise ValueError(f"No board data for {manufacturer}/{model}/{variant}")
 
+    def get_all(self):
+        return self._boards.copy()
+
+
 @dataclasses.dataclass
 class BoardDefinition(object):
     manufacturer: str
     model: str
     variant: str
-    mcu: 'BoardMCUDefinition'
-    can: Union['BoardCANDefinition',str,None] = None
+    mcu: "BoardMCUDefinition"
+    can: Union["BoardCANDefinition", str, None] = None
     usb: Optional[str] = None
-    uart: Optional['BoardUARTDefinition'] = None
+    uart: Optional["BoardUARTDefinition"] = None
     status: Optional[str] = None
-    klipper_options: Optional[Dict[str,str]] = None
+    klipper_options: Optional[Dict[str, str]] = None
 
     def __str__(self):
         return f"{self.manufacturer}/{self.model}/{self.variant}"
 
     @classmethod
-    def get_one_from_file(cls, file: PathLike, category: str, manufacturer: str, model: str, variant: str) -> 'BoardDefinition':
+    def get_one_from_file(
+        cls, file: PathLike, category: str, manufacturer: str, model: str, variant: str
+    ) -> "BoardDefinition":
         all_data = json.load(Path(file).open())
-        board_def_data = all_data.get(category, {}).get(manufacturer, {}).get(model, {}).get(variant, None)
+        board_def_data = (
+            all_data.get(category, {})
+            .get(manufacturer, {})
+            .get(model, {})
+            .get(variant, None)
+        )
         if not board_def_data:
-            raise ValueError(f"No definition for {category}/{manufacturer}/{model}/{variant}")
+            raise ValueError(
+                f"No definition for {category}/{manufacturer}/{model}/{variant}"
+            )
         return BoardDefinition.from_data(manufacturer, model, variant, board_def_data)
 
     @classmethod
@@ -64,9 +80,13 @@ class BoardDefinition(object):
                 for product, variants in products.items():
                     for variant, json_defn in variants.items():
                         try:
-                            yield BoardDefinition.from_data(manufacturer, product, variant, json_defn)
+                            yield BoardDefinition.from_data(
+                                manufacturer, product, variant, json_defn
+                            )
                         except KeyError as e:
-                            logger.warning(f"Board definition for {category}/{manufacturer}/{product}/{variant} is missing {e.args[0]}, skipping...")
+                            logger.warning(
+                                f"Board definition for {category}/{manufacturer}/{product}/{variant} is missing {e.args[0]}, skipping..."
+                            )
                             continue
 
     @classmethod
@@ -86,36 +106,37 @@ class BoardDefinition(object):
     def get(cls, manufacturer, model, variant):
         if mfr_matches := [x for x in cls.get_all() if x.manufacturer == manufacturer]:
             if model_matches := [x for x in mfr_matches if x.model == model]:
-                if variant_matches := [x for x in model_matches if x.variant == variant]:
+                if variant_matches := [
+                    x for x in model_matches if x.variant == variant
+                ]:
                     if len(variant_matches) > 1:
                         raise ValueError("Duplicate board definition")
                     elif len(variant_matches) == 1:
                         return variant_matches[0]
         raise ValueError(f"No board data for {manufacturer}/{model}/{variant}")
 
-
-
     @classmethod
-    def from_data(cls, manufacturer, model, variant, definition: Dict) -> 'BoardDefinition':
+    def from_data(
+        cls, manufacturer, model, variant, definition: Dict
+    ) -> "BoardDefinition":
         opts = {
             "manufacturer": manufacturer,
             "model": model,
             "variant": variant,
-            "mcu": BoardMCUDefinition.from_data(definition['mcu']),
+            "mcu": BoardMCUDefinition.from_data(definition["mcu"]),
         }
-        if (usb := definition.get('usb')) is not None:
-            opts['usb'] = usb
-        if uart := definition.get('uart'):
-            opts['uart'] = BoardUARTDefinition.from_data(uart)
-        elif rs232 := definition.get('rs232'):
-            opts['uart'] = BoardUARTDefinition.from_data({
-                'tx_pin': rs232['tx'],
-                'rx_pin': rs232['rx']
-            })
-        if can := definition.get('can'):
-            opts['can'] = BoardCANDefinition.from_data(can)
-        elif can := definition.get('CAN_Bridge'):
-            opts['can'] = BoardCANDefinition.from_data(can)
+        if (usb := definition.get("usb")) is not None:
+            opts["usb"] = usb
+        if uart := definition.get("uart"):
+            opts["uart"] = BoardUARTDefinition.from_data(uart)
+        elif rs232 := definition.get("rs232"):
+            opts["uart"] = BoardUARTDefinition.from_data(
+                {"tx_pin": rs232["tx"], "rx_pin": rs232["rx"]}
+            )
+        if can := definition.get("can"):
+            opts["can"] = BoardCANDefinition.from_data(can)
+        elif can := definition.get("CAN_Bridge"):
+            opts["can"] = BoardCANDefinition.from_data(can)
         return cls(**opts)
 
     @cached_property
@@ -129,6 +150,26 @@ class BoardDefinition(object):
             interfaces.append(self.can.as_interface())
         return interfaces
 
+    def pretty(self, indent=0):
+        retstr = f"{self.manufacturer} {self.model}"
+        if self.model != self.variant:
+            retstr += f" ({self.variant})"
+        retstr += "\n"
+        retstr += f"  MCU: {self.mcu.pretty()}\n"
+        retstr += "  Interfaces:\n"
+        for interface in self.interfaces:
+            retstr += f"    {interface.pretty()}\n"
+        if self.status is not None:
+            retstr += f"  Status LED on {self.status}\n"
+        else:
+            retstr += "  No status LED\n"
+
+        if self.klipper_options:
+            retstr += f"  Advanced options:\n"
+            for opt, val in self.klipper_options.items():
+                retstr += f"    {opt}={val}\n"
+        return retstr
+
 
 @dataclasses.dataclass
 class BoardCANDefinition(object):
@@ -136,21 +177,16 @@ class BoardCANDefinition(object):
     rx_pin: str
 
     @classmethod
-    def from_data(cls, data: Dict|str) -> 'BoardCANDefinition':
+    def from_data(cls, data: Dict | str) -> "BoardCANDefinition":
         if type(data) is str:
             tok = data.split("/")
-            return cls(
-                rx_pin=tok[0],
-                tx_pin=tok[1]
-            )
+            return cls(rx_pin=tok[0], tx_pin=tok[1])
         else:
-            return cls(
-                rx_pin=data['can_rx'],
-                tx_pin=data['can_tx']
-            )
+            return cls(rx_pin=data["can_rx"], tx_pin=data["can_tx"])
 
     def as_interface(self):
-        return BoardInterfaceDefinition("CAN", {'tx': self.tx_pin, 'rx': self.rx_pin})
+        return BoardInterfaceDefinition("CAN", {"tx": self.tx_pin, "rx": self.rx_pin})
+
 
 @dataclasses.dataclass
 class BoardUARTDefinition(object):
@@ -158,36 +194,44 @@ class BoardUARTDefinition(object):
     rx_pin: str
 
     @classmethod
-    def from_data(cls, data: Dict) -> 'BoardUARTDefinition':
-        return cls(
-            rx_pin=data['rx_pin'],
-            tx_pin=data['tx_pin']
-        )
+    def from_data(cls, data: Dict) -> "BoardUARTDefinition":
+        return cls(rx_pin=data["rx_pin"], tx_pin=data["tx_pin"])
 
     def as_interface(self):
-        return BoardInterfaceDefinition("UART", {'tx': self.tx_pin, 'rx': self.rx_pin})
+        return BoardInterfaceDefinition("UART", {"tx": self.tx_pin, "rx": self.rx_pin})
 
 
 @dataclasses.dataclass
 class BoardMCUDefinition(object):
     arch: str
     mcu: str
-    clock: Optional[str] = None,
+    clock: Optional[str] = (None,)
     flash: Optional[str] = None
 
     @classmethod
-    def from_data(cls, data: Dict) -> 'BoardMCUDefinition':
+    def from_data(cls, data: Dict) -> "BoardMCUDefinition":
         return cls(
-            arch=data['architecture'],
-            mcu=data['mcu'],
-            clock=data.get('clock'),
-            flash=data.get('flash')
+            arch=data["architecture"],
+            mcu=data["mcu"],
+            clock=data.get("clock"),
+            flash=data.get("flash"),
         )
+
+    def pretty(self):
+        retstr = f"{self.arch} {self.mcu}"
+        if self.clock and self.flash:
+            retstr += f" with {self.clock} clock and {self.flash} flash"
+        elif self.clock:
+            retstr += f" with {self.clock} clock"
+        elif self.flash:
+            retstr += f" with {self.flash} flash"
+        return retstr
+
 
 @dataclasses.dataclass
 class BoardInterfaceDefinition(object):
     if_type: str
-    pins: Dict[str,str]
+    pins: Dict[str, str]
 
     def __str__(self) -> str:
         return f"{self.if_type.upper()}"
@@ -196,14 +240,13 @@ class BoardInterfaceDefinition(object):
     def usb(cls, spec):
         if spec:
             tok = spec.split("/")
-            pins = {
-                'dm': tok[0],
-                'dp': tok[1]
-            }
+            pins = {"dm": tok[0], "dp": tok[1]}
         else:
             pins = {}
-        return cls(
-            "USB",
-            pins
-        )
+        return cls("USB", pins)
 
+    def pretty(self):
+        retstr = self.if_type
+        if self.pins:
+            retstr += f" on {'/'.join(self.pins.values())}"
+        return retstr

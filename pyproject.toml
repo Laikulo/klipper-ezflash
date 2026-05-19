@@ -11,7 +11,7 @@ authors = [
 dynamic = ["version"]
 dependencies = [
     'kconfiglib-klipper',
-    'urwid'
+    'pythondialog',
 ]
 
 [tool.setuptools_scm]
@@ -24,3 +24,5 @@ include = ["board2kconf", "board2kconf.*"]
 
 [project.scripts]
 "check_kboards" = "board2kconf.scripts.test_all_boards:main"
+"ezf" = "board2kconf.__main__:main"
+"ezflash" = "board2kconf.__main__:main"
