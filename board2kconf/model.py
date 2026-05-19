@@ -29,6 +29,9 @@ class BoardDatabase(object):
                         return variant_matches[0]
         raise ValueError(f"No board data for {manufacturer}/{model}/{variant}")
 
+    def get_all(self):
+        return self._boards.copy()
+
 @dataclasses.dataclass
 class BoardDefinition(object):
     manufacturer: str

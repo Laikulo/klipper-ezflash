@@ -11,7 +11,8 @@ authors = [
 dynamic = ["version"]
 dependencies = [
     'kconfiglib-klipper',
-    'urwid'
+    'urwid',
+    'pythondialog',
 ]
 
 [tool.setuptools_scm]
