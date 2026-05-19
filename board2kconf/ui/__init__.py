@@ -17,6 +17,7 @@ class UI(object):
     def __init__(self):
         self._state = 0
         self._dialog = Dialog(dialog='dialog', autowidgetsize=True)
+        self._dialog.add_persistent_args(("--no-collapse",))
 
 
     def main_menu(self):
@@ -81,7 +82,9 @@ class UI(object):
             if code == Dialog.OK:
                 if tag == 'boardinfo':
                     board = self.select_board()
-                    self._dialog.msgbox(str(board))
+                    if not board:
+                        continue
+                    self._dialog.msgbox(board.pretty(), width=100, height=20)
                 elif tag == 'exit':
                     return 0
                 elif tag == 'crash':

@@ -132,6 +132,27 @@ class BoardDefinition(object):
             interfaces.append(self.can.as_interface())
         return interfaces
 
+    def pretty(self, indent=0):
+        retstr = f"{self.manufacturer} {self.model}"
+        if self.model != self.variant:
+            retstr += f" ({self.variant})"
+        retstr += "\n"
+        retstr += f"  MCU: {self.mcu.pretty()}\n"
+        retstr += "  Interfaces:\n"
+        for interface in self.interfaces:
+            retstr += f"    {interface.pretty()}\n"
+        if self.status is not None:
+            retstr += f"  Status LED on {self.status}\n"
+        else:
+            retstr += "  No status LED\n"
+
+        if self.klipper_options:
+            retstr += f"  Advanced options:\n"
+            for opt, val in self.klipper_options.items():
+                retstr += f"    {opt}={val}\n"
+        return retstr
+
+
 
 @dataclasses.dataclass
 class BoardCANDefinition(object):
@@ -187,6 +208,15 @@ class BoardMCUDefinition(object):
             flash=data.get('flash')
         )
 
+    def pretty(self):
+        retstr = f"{self.arch} {self.mcu}"
+        if self.clock is not None:
+            retstr += f" with {self.clock} clock"
+        if self.flash is not None:
+            retstr += f" and {self.flash} flash"
+        return retstr
+
+
 @dataclasses.dataclass
 class BoardInterfaceDefinition(object):
     if_type: str
@@ -209,4 +239,10 @@ class BoardInterfaceDefinition(object):
             "USB",
             pins
         )
+
+    def pretty(self):
+        retstr = self.if_type
+        if self.pins:
+            retstr += f" on {'/'.join(self.pins.values())}"
+        return retstr
 
