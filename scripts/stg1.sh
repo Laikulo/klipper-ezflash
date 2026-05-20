@@ -3,6 +3,9 @@
 # Invoke remotely with bash <(curl -L URL)
 # This preserves stdin/out for proper console interactions
 
+# TODO: Write failure handler
+# TODO: Check status of everything important
+
 handle_exit() {
   trap - EXIT
   if [[ $_LOGFD ]]; then
@@ -18,7 +21,9 @@ handle_exit() {
 }
 
 handle_err(){
-  :
+  log "FATAL: In error handler"
+  echo "A fatal error has occurred. "
+  # TODO: Write some details to the log
 }
 
 setup_logging() {
@@ -70,6 +75,30 @@ have_command() {
   return $?
 }
 
+distro_id() {
+  while IFS="=" read key val; do
+    if [[ $key == "ID" ]]; then
+      echo "$val"
+      return 0
+    fi
+  done </etc/os-release
+  return 1
+}
+
+log_tee() {
+  local prefix input_line
+  if [[ $1 ]]; then
+    prefix="$1: "
+  else
+    prefix=""
+  fi
+
+  while read -r input_line; do
+    echo "$prefix$input_line" >&$_LOGFD
+    echo "$input_line"
+  done
+}
+
 ensure_dialog() {
   if have_command dialog; then
     log Dialog already installed
@@ -87,16 +116,21 @@ ensure_dialog() {
   log Beginning dialog install
   if have_command apt-get; then
     log installing with apt
-    become apt-get update |& tee -a "$_LOGFDF"
-    become apt-get -y install dialog |& tee -a "$_LOGFDF"
+    become apt-get update |& log_tee apt-update
+    become apt-get -y install dialog |& log_tee apt-install
   elif have_command dnf; then
     log installing with dnf
-    become dnf --refresh install -y dialog |& tee -a "$_LOGFDF"
+    become dnf --refresh install -y dialog |& log_tee dnf
   else
     log could not install - unknown package manager
     exit 1
   fi
+  _HAVE_DIALOG="yes"
 }
+
+_HAVE_DIALOG=""
+
+
 
 main() {
   setup_logging
@@ -108,6 +142,81 @@ main() {
     dialog --infobox "Exiting on user request..." 3 30
     exit 0
   fi
+  local basedir pyenv distro repodir
+
+  distro="$(distro_id)"
+
+  if [[ $distro =~ debian|ubuntu ]]; then
+    dialog --infobox "Checking dependencies..." 3 30
+    typeset -a missing_pkgs
+    missing_debs=()
+    for pkgname in python3 python3-pip-whl python3-venv git; do
+      log "checking $pkgname"
+      dpkg-query --show "$pkgname" |& log_tee dpkg-query >/dev/null
+      if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
+        log "found $pkgname"
+      else
+        log "added $pkgname to install list"
+        missing_debs+=( "$pkgname" )
+      fi
+    done
+
+    if [[ "${missing_debs}" ]] ; then
+      dialog --msgbox "Ready to install dependencies\nyour password may be needed" 8 50
+      become apt-get update | log_tee apt-update | dialog --progressbox "Package DB Update" 20 80
+      become apt-get install -y "${missing_debs[@]}" | log_tee apt-install | dialog --progressbox "Package Install" 20 80
+    else
+      dialog --sleep 2 --infobox "All dependencies already present" 3 50
+    fi
+  else
+    dialog --msgbox "Unknown distro $distro, dependencies will not be automatically installed"
+  fi
+
+
+  basedir="$HOME/.ezf"
+  if [[ -d $basedir ]]; then
+    log "Basedir already exists"
+    if ! dialog --defaultno --yesno \
+           "There may already be a copy of EZFlash installed. Proceed?" \
+           0 0; then
+      log Exiting on user request
+      dialog --infobox "Exiting on user request..." 3 30
+      exit 0
+    fi
+  else
+    mkdir "$basedir"
+  fi
+
+  pyenv="$basedir/py"
+  python3 -m venv --clear --prompt ezf "$pyenv" |& log_tee py-venv | dialog --progressbox "Python environment" 20 80
+  (
+    $pyenv/bin/pip install -U pip
+    $pyenv/bin/pip install wheel
+  ) |& log_tee pip | dialog --progressbox "Python packages" 20 80
+
+  repodir="$basedir/src"
+  if [[ -d $repodir ]]; then
+    log "Using existing repo"
+    pushd "$repodir"
+    (
+      git fetch -v origin feat/installer
+      git reset --hard FETCH_HEAD
+    ) |& log_tee git | dialog --progressbox "Git Fetch" 20 80
+  else
+    log "Cloning new repo"
+    git clone -v https://github.com/laikulo/klipper-ezflash.git -b feat/installer "$repodir" |& log_tee git | dialog --progressbox "Git Clone" 20 80
+  fi
+
+  log "editable installation"
+  "$pyenv/bin/pip" install -e "$repodir" |& log_tee pip | dialog --progressbox "Development Installation" 20 80
+
+  dialog --infobox "Creating Symlinks..."
+  [[ -d $HOME/.local/bin ]] || mkdir -p "$HOME/.local/bin"
+  ln -s "$pyenv/bin/ezf" "$HOME/.local/bin"
+  ln -s "$pyenv/bin/ezf" "$HOME/ezf"
+
+  dialog --clear --msgbox "Installation complete!" 5 30
+  clear
 }
 
 trap handle_exit EXIT
