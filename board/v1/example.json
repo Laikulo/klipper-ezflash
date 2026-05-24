@@ -280,6 +280,18 @@
         }
       }
     },
+    "Isik's Tech": {
+      "Ouroboros": {
+        "Ouroboros": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "usb": "PA11/PA12"
+        }
+      }
+    },
     "LDO": {
       "Leviathan": {
         "Leviathan v1.2": {
