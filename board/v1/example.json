@@ -924,6 +924,18 @@
       }
     },
     "Isik's Tech": {
+      "Hedeghog Klipper IO Board": {
+        "Hedeghog Klipper IO Board": {
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB0/PB1",
+          "usb": "PA11/PA12",
+          "status": "PA13"
+        }
+      },
       "Nevermore PCBs": {
         "Nevermore Max 2 PCB": {
           "mcu": {
