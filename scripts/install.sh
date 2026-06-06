@@ -204,7 +204,7 @@ main() {
     ) |& log_tee git | dialog --progressbox "Git Fetch" 20 80
   else
     log "Cloning new repo"
-    git clone -v https://github.com/laikulo/klipper-ezflash.git -b feat/installer "$repodir" |& log_tee git | dialog --progressbox "Git Clone" 20 80
+    git clone -v https://github.com/laikulo/klipper-ezflash.git -b main "$repodir" |& log_tee git | dialog --progressbox "Git Clone" 20 80
   fi
 
   log "editable installation"
