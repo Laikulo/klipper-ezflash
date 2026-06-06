@@ -1,37 +1,79 @@
 #!/usr/bin/env bash
 
-die() {
-  # (RC, message)
-  rc="${1:-1}"
-  message="${2:"No message given"}"
-  echo >&2 "FATAL: $message"
-  exit $rc
+# Invoke remotely with bash <(curl -L URL)
+# This preserves stdin/out for proper console interactions
+
+# TODO: Write failure handler
+# TODO: Check status of everything important
+
+handle_exit() {
+  trap - EXIT
+  if [[ $_LOGFD ]]; then
+    exec {_LOGFD}>&-
+    unset _LOGFD
+    unset _LOGFDF
+  fi
+  if [[ $_LOGFILE ]]; then
+    echo "Log file written to $_LOGFILE"
+    echo "===END===" >> "$_LOGFILE"
+    unset _LOGFILE
+  fi
 }
 
-l() {
-  echo >&2 "$@"
+handle_err(){
+  log "FATAL: In error handler"
+  echo "A fatal error has occurred. "
+  # TODO: Write some details to the log
 }
 
-typeset -A PKGS_DEBIAN PKGLIST_TAB PKGS_FEDORA
-PKGLIST_TAB=(
-  [debian]=PKGS_DEBIAN
-  [ubuntu]=PKGS_DEBIAN
-  [fedora]=PKGS_FEDORA
-)
+setup_logging() {
+  local logdir logname
+  if [[ -d "$HOME/printer_data/logs" ]]; then
+    logdir="$HOME/printer_data/logs"
+  else
+    logdir="/tmp"
+  fi
 
-PKGS_DEBIAN=(
-  [dialog]=dialog
-  [python3]=python3-minimal
-  [pip]=python3-pip
-  [git]=git
-)
+  logname="ezfinstall-$EPOCHSECONDS-$$.log"
 
-PKGS_FEDORA=(
-  [dialog]=dialog
-  [python3]=python3
-  [pip]=python3-pip
-  [git]=git
-)
+  _LOGFILE="$logdir/$logname"
+  exec {_LOGFD}>>"$_LOGFILE"
+  _LOGFDF="/dev/fd/$_LOGFD"
+  cat <<<===START=== >&$_LOGFD
+  echo "Logging to '${_LOGFILE}'. please provide this file when requesting support." >&2
+}
+
+log() {
+  echo $@ >&$_LOGFD
+}
+
+confirm_tty() {
+  local response
+  while true; do
+    read -p "[y/n]? " -n1 -r response
+    if [[ $response =~ [yY] ]]; then
+      echo ""
+      return 0
+    elif [[ $response =~ [Nn] ]]; then
+      echo ""
+      return 1
+    fi
+  done
+}
+
+become() {
+  if [[ $EUID -ne 0 ]]; then
+    sudo "$@"
+  else
+    "$@"
+  fi
+  return $?
+}
+
+have_command() {
+  command -v "$1" &>/dev/null
+  return $?
+}
 
 distro_id() {
   while IFS="=" read key val; do
@@ -43,86 +85,141 @@ distro_id() {
   return 1
 }
 
-get_pkgname() {
-  local cmd qstr pkg
-  cmd="${1:?Command required}"
-  qstr="${PKGLIST_TAB[$(distro_id)]}[$cmd]"
-  pkg="${!qstr}"
-  if [[ $pkg ]]; then
-    echo "$pkg"
-    return 0
-  fi
-  return 1
-}
-
-install_command() {
-  local distro cmd
-  cmd="${1:?Command Required}"
-  distro="$(distro_id)"
-
-  pkg="$(get_pkgname "$cmd")"
-
-  l "Preparing to install ${cmd} from package ${pkg}. Password may be required"
-
-  if [[ $EUID -eq 0 ]]; then
-    SUDO=""
+log_tee() {
+  local prefix input_line
+  if [[ $1 ]]; then
+    prefix="$1: "
   else
-    SUDO="sudo"
+    prefix=""
   fi
 
-  if [[ $distro == 'debian' || $distro == 'ubuntu' ]]; then
-    $SUDO apt-get update
-    $SUDO apt-get install -y "${pkg}"
-  elif [[ $distro == 'fedora' ]]; then
-    $SUDO dnf --refresh install -y "${pkg}"
-  fi
-
-
+  while read -r input_line; do
+    echo "$prefix$input_line" >&$_LOGFD
+    echo "$input_line"
+  done
 }
 
-ensure_command() {
-  local cmd
-  cmd="${1:?Command Required}"
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    install_command "$cmd"
+ensure_dialog() {
+  if have_command dialog; then
+    log Dialog already installed
+    return
+  fi
+  log Offering dialog install
+  echo "Welcome to the EZFlash installer."
+  echo "This tool requires the dialog command, which does not appear to be installed."
+  echo -n "Shall I attempt to install it "
+  if ! confirm_tty; then
+    log User declined dialog install
+    echo -n "Exiting on user request"
+    exit 0
+  fi
+  log Beginning dialog install
+  if have_command apt-get; then
+    log installing with apt
+    become apt-get update |& log_tee apt-update
+    become apt-get -y install dialog |& log_tee apt-install
+  elif have_command dnf; then
+    log installing with dnf
+    become dnf --refresh install -y dialog |& log_tee dnf
   else
-    l "Using already installed ${cmd}"
+    log could not install - unknown package manager
+    exit 1
   fi
+  _HAVE_DIALOG="yes"
 }
 
-build_venv() {
-  # (dir, specs)
-  dir="$1"
-  shift 1
-  python3 -m venv "$dir" --upgrade-deps
-  "$dir/bin/pip" install wheel "$@"
-}
+_HAVE_DIALOG=""
+
+
 
 main() {
-  ensure_command dialog
+  setup_logging
+  ensure_dialog
   if ! dialog --defaultno --yesno \
          "EZFlash is prerelease software\n\nIt may eat your firmware and/or cat.\nWould you like to continue?" \
          0 0; then
+    log Exiting on user request
     dialog --infobox "Exiting on user request..." 3 30
     exit 0
   fi
-  ensure_command python3 2>&1 | dialog --progressbox "Dependency: python3" 30 80
-  ensure_command pip 2>&1 | dialog --progressbox "Dependency: pip" 30 80
-  : "${HOME:?HOME is not set, not sure how that happened}"
-  [[ -d $HOME/.ezf ]] || mkdir $HOME/.ezf
-  build_venv "$HOME/.ezf/py" |& dialog --sleep 2 --progressbox "Python Environment" 30 80
-  ensure_command git 2>&1 |& dialog --progressbox "Dependency: git" 30 80
-  (
-  if [[ -d "$HOME/.ezf/src" ]]; then
-    GIT_WORK_TREE="$HOME/.ezf/src" GIT_DIR="$GIT_WORK_TREE/.git" git fetch
-    GIT_WORK_TREE="$HOME/.ezf/src" GIT_DIR="$GIT_WORK_TREE/.git" git reset --hard origin/main
+  local basedir pyenv distro repodir
+
+  distro="$(distro_id)"
+
+  if [[ $distro =~ debian|ubuntu ]]; then
+    dialog --infobox "Checking dependencies..." 3 30
+    typeset -a missing_pkgs
+    missing_debs=()
+    for pkgname in python3 python3-pip-whl python3-venv git; do
+      log "checking $pkgname"
+      dpkg-query --show "$pkgname" |& log_tee dpkg-query >/dev/null
+      if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
+        log "found $pkgname"
+      else
+        log "added $pkgname to install list"
+        missing_debs+=( "$pkgname" )
+      fi
+    done
+
+    if [[ "${missing_debs}" ]] ; then
+      dialog --msgbox "Ready to install dependencies\nyour password may be needed" 8 50
+      become apt-get update | log_tee apt-update | dialog --progressbox "Package DB Update" 20 80
+      become apt-get install -y "${missing_debs[@]}" | log_tee apt-install | dialog --progressbox "Package Install" 20 80
+    else
+      dialog --sleep 2 --infobox "All dependencies already present" 3 50
+    fi
   else
-    git clone "https://github.com/laikulo/klipper-ezflash.git" "$HOME/.ezf/src"
+    dialog --msgbox "Unknown distro $distro, dependencies will not be automatically installed"
   fi
-  ) |& dialog --sleep 2 --progressbox "Development checkout" 30 80
-  "$HOME/.ezf/py/bin/pip" install "$HOME/.ezf/src" |& dialog --sleep 2 --progressbox "Development installation" 30 80
-  dialog --clear --msgbox "Complete!" 0 0
+
+
+  basedir="$HOME/.ezf"
+  if [[ -d $basedir ]]; then
+    log "Basedir already exists"
+    if ! dialog --defaultno --yesno \
+           "There may already be a copy of EZFlash installed. Proceed?" \
+           0 0; then
+      log Exiting on user request
+      dialog --infobox "Exiting on user request..." 3 30
+      exit 0
+    fi
+  else
+    mkdir "$basedir"
+  fi
+
+  pyenv="$basedir/py"
+  python3 -m venv --clear --prompt ezf "$pyenv" |& log_tee py-venv | dialog --progressbox "Python environment" 20 80
+  (
+    $pyenv/bin/pip install -U pip
+    $pyenv/bin/pip install wheel
+  ) |& log_tee pip | dialog --progressbox "Python packages" 20 80
+
+  repodir="$basedir/src"
+  if [[ -d $repodir ]]; then
+    log "Using existing repo"
+    pushd "$repodir"
+    (
+      git fetch -v origin feat/installer
+      git reset --hard FETCH_HEAD
+    ) |& log_tee git | dialog --progressbox "Git Fetch" 20 80
+  else
+    log "Cloning new repo"
+    git clone -v https://github.com/laikulo/klipper-ezflash.git -b feat/installer "$repodir" |& log_tee git | dialog --progressbox "Git Clone" 20 80
+  fi
+
+  log "editable installation"
+  "$pyenv/bin/pip" install -e "$repodir" |& log_tee pip | dialog --progressbox "Development Installation" 20 80
+
+  dialog --infobox "Creating Symlinks..."
+  [[ -d $HOME/.local/bin ]] || mkdir -p "$HOME/.local/bin"
+  ln -s "$pyenv/bin/ezf" "$HOME/.local/bin"
+  ln -s "$pyenv/bin/ezf" "$HOME/ezf"
+
+  dialog --clear --msgbox "Installation complete!" 5 30
+  clear
 }
 
+trap handle_exit EXIT
+trap handle_err  ERR
 main "$@"
 exit $?
