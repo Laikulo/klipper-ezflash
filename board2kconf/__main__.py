@@ -7,8 +7,6 @@ from board2kconf.model import BoardDatabase
 from .util import find_klipper
 from .ui import UI
 
-import urwid
-
 logger = logging.getLogger("klipper-mcu-configs")
 
 
