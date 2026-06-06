@@ -13,7 +13,7 @@ jobs:
           sudo apt-get -y install python3-jsonschema
       - name: check schema
         run:
-          jsonschema -i "$GITHUB_WORKSPACE/board/v1/example.json" "$GITHUB_WORKSPACE/board/v1/example.schema.json"
+          jsonschema -i "$GITHUB_WORKSPACE/boards/boards.json" "$GITHUB_WORKSPACE/boards/boards.schema.json"
   verify:
     name: Verify config viability
     runs-on: ubuntu-slim
@@ -36,4 +36,4 @@ jobs:
           KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" check_kboards
       - name: Check board data (external)
         run: |
-          KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" KBOARD_BOARDS_PATH="$GITHUB_WORKSPACE/klipper-ezflash/board/v1/example.json" check_kboards
+          KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" KBOARD_BOARDS_PATH="$GITHUB_WORKSPACE/klipper-ezflash/boards/boards.json" check_kboards

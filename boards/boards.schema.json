@@ -14,6 +14,12 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "boot_method": {
+              "type": "string"
+            },
+            "documentation": {
+              "type": "string"
+            },
             "mcu": {
               "type": "object",
               "properties": {
