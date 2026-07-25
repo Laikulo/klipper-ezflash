@@ -195,6 +195,8 @@ class BoardDefinition(object):
             opts["can"] = BoardCANDefinition.from_data(can)
         elif can := definition.get("CAN_Bridge"):
             opts["can"] = BoardCANDefinition.from_data(can)
+        if (status := definition.get("status")) is not None:
+            opts["status"] = status
         return cls(**opts)
 
     @cached_property
