@@ -1,15 +1,14 @@
 from sys import exit, stderr
+import subprocess
 import traceback
+from pathlib import Path
+from typing import Tuple
 
 from ..model import BoardDatabase
+from ..settings import InterfaceSettings
+from ..util import find_katapult, _KATAPULT_CLONE_URL
 
 from dialog import Dialog
-import traceback
-from sys import exit, stderr
-
-from dialog import Dialog
-
-from ..model import BoardDatabase
 
 
 class UI(object):
@@ -17,6 +16,94 @@ class UI(object):
         self._state = 0
         self._dialog = Dialog(dialog="dialog", autowidgetsize=True)
         self._dialog.add_persistent_args(("--no-collapse",))
+        self._katapult_checked = False
+
+    def _check_katapult(self):
+        """Check if katapult is installed; prompt user to clone it if missing.
+
+        Katapult is required for flashing Klipper bootloaders on supported boards.
+        This check only runs once per session to avoid repeated prompts.
+        """
+        if self._katapult_checked:
+            return  # Already checked this session
+        
+        katapult_path = find_katapult()
+        if katapult_path is not None:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Katapult found at {katapult_path}")
+            self._katapult_checked = True
+            return
+
+        # Katapult not found — prompt user to clone it or skip
+        self._katapult_checked = True
+        code, tag = self._dialog.menu(
+            "KATAPULT NOT FOUND\n\n"
+            "Klipper-ezflash requires 'katapult' (a bootloader flash helper) to be installed.\n\n"
+            f"It can be cloned from:\n  {_KATAPULT_CLONE_URL}",
+            choices=[
+                ("clone", "Clone katapult now"),
+                ("skip", "Skip (katapult will not be available)"),
+                ("quit", "Quit"),
+            ],
+            cancel_label="Quit",
+        )
+
+        if code == Dialog.OK:
+            if tag == "clone":
+                self._clone_katapult()
+            # skip/quit — just continue without katapult
+
+    def _clone_katapult(self):
+        """Clone the katapult repository to ~/katapult."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        clone_target = Path.home() / "katapult"
+        
+        try:
+            logger.info(f"Cloning katapult from {_KATAPULT_CLONE_URL} to {clone_target}")
+            result = subprocess.run(
+                ["git", "clone", _KATAPULT_CLONE_URL, str(clone_target)],
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                error_msg = (result.stderr or f"Clone failed with exit code {result.returncode}").strip()
+                logger.error(f"Failed to clone katapult: {error_msg}")
+                self._dialog.msgbox(
+                    f"Failed to clone katapult:\n\n{error_msg}",
+                    width=70,
+                    height=15,
+                )
+            else:
+                logger.info(f"Successfully cloned katapult to {clone_target}")
+                self._dialog.msgbox(
+                    "Katapult has been cloned successfully!\n\n"
+                    f"Location: {clone_target}\n\n"
+                    "The tool will now check for it again.",
+                    width=70,
+                    height=15,
+                )
+                # Reset the checked flag so the next call re-validates
+                self._katapult_checked = False
+                self._check_katapult()
+        except FileNotFoundError:
+            logger.error("git command not found — cannot clone katapult")
+            self._dialog.msgbox(
+                "git is not installed or not in your PATH.\n\n"
+                "Please install git and try again.",
+                width=70,
+                height=15,
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error cloning katapult: {e}")
+            self._dialog.msgbox(
+                f"An unexpected error occurred:\n\n{e}",
+                width=70,
+                height=15,
+            )
 
     def main_menu(self):
         self._dialog.set_background_title("Main Menu")
@@ -24,6 +111,7 @@ class UI(object):
             "What would you like to do?",
             choices=[
                 ("boardinfo", "Lookup information about a board"),
+                ("settings", "Edit the default communication settings"),
                 ("crash", "Intentionally crash"),
                 ("exit", "Exit"),
             ],
@@ -32,7 +120,7 @@ class UI(object):
 
     def select_board(self):
         bdb = BoardDatabase()
-        board = bdb.get_all()
+        board = list(bdb.get_all())
         manufacturers = tuple(sorted(set([b.manufacturer for b in board])))
         code, tag = self._dialog.menu(
             "Select manufacturer",
@@ -81,7 +169,82 @@ class UI(object):
             selected_variant = board_variants[int(tag)]
         else:
             selected_variant = board_variants[0]
-        return bdb.get(selected_mfr, selected_model, selected_variant)
+        return bdb.get_board(selected_mfr, selected_model, selected_variant)
+
+    def _edit_int_setting(self, title: str, current_value: int) -> Tuple[str, int]:
+        """Show an inputbox for editing a numeric setting. Returns (code, value)."""
+        code, user_input = self._dialog.inputbox(
+            f"Enter {title}:",
+            init=str(current_value),
+            width=60,
+            height=15,
+        )
+        if code != Dialog.OK:
+            return code, current_value
+
+        try:
+            new_value = int(user_input)
+            if new_value < 0:
+                self._dialog.msgbox(
+                    f"Value must be non-negative (got {new_value}).\nUsing previous value.",
+                    width=60,
+                    height=15,
+                )
+                return Dialog.CANCEL, current_value
+            return code, new_value
+        except ValueError:
+            self._dialog.msgbox(
+                f"Invalid input '{user_input}'. Must be a positive integer.\nUsing previous value.",
+                width=60,
+                height=15,
+            )
+            return Dialog.CANCEL, current_value
+
+    def settings_menu(self):
+        """Display the settings dialog with CAN and UART rate options."""
+        settings = InterfaceSettings()
+
+        while True:
+            self._dialog.set_background_title("Interface Settings")
+
+            code, tag = self._dialog.menu(
+                "Communication Settings",
+                choices=[
+                    ("can_speed", f"CAN Bit Rate: {settings.can_speed} bps"),
+                    ("uart_baudrate", f"UART Baud Rate: {settings.uart_baudrate} bps"),
+                    ("save", "Save and Exit"),
+                    ("cancel", "Cancel (Discard Changes)"),
+                ],
+                cancel_label="Exit",
+            )
+
+            if code == Dialog.OK:
+                if tag == "can_speed":
+                    _, new_value = self._edit_int_setting("CAN speed (bps)", settings.can_speed)
+                    if new_value != settings.can_speed:
+                        try:
+                            settings.can_speed = new_value
+                        except ValueError as e:
+                            self._dialog.msgbox(str(e), width=60, height=15)
+                elif tag == "uart_baudrate":
+                    _, new_value = self._edit_int_setting("UART baud rate (bps)", settings.uart_baudrate)
+                    if new_value != settings.uart_baudrate:
+                        try:
+                            settings.uart_baudrate = new_value
+                        except ValueError as e:
+                            self._dialog.msgbox(str(e), width=60, height=15)
+                elif tag == "save":
+                    settings.save()
+                    self._dialog.msgbox(
+                        f"Settings saved successfully.\n\nCAN Speed: {settings.can_speed} bps\nUART Baud Rate: {settings.uart_baudrate} bps",
+                        width=60,
+                        height=20,
+                    )
+                    return True
+                elif tag == "cancel":
+                    return False
+            elif code in (Dialog.CANCEL, Dialog.ESC):
+                return False
 
     def menus(self):
         while True:
@@ -92,6 +255,8 @@ class UI(object):
                     if not board:
                         continue
                     self._dialog.msgbox(board.pretty(), width=100, height=20)
+                elif tag == "settings":
+                    self.settings_menu()
                 elif tag == "exit":
                     return 0
                 elif tag == "crash":
@@ -113,6 +278,7 @@ class UI(object):
                 no_label="Quit",
             )
             if code == Dialog.OK:
+                self._check_katapult()
                 self.menus()
         except KeyboardInterrupt:
             print("\033[H\033[2J")

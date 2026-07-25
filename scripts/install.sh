@@ -150,7 +150,7 @@ main() {
     dialog --infobox "Checking dependencies..." 3 30
     typeset -a missing_pkgs
     missing_debs=()
-    for pkgname in python3 python3-pip-whl python3-venv git; do
+    for pkgname in python3 python3-pip python3-venv git; do
       log "checking $pkgname"
       dpkg-query --show "$pkgname" |& log_tee dpkg-query >/dev/null
       if [[ ${PIPESTATUS[0]} -eq 0 ]]; then

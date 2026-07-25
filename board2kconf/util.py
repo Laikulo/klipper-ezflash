@@ -1,12 +1,30 @@
 import os
+import subprocess
 from functools import cache
 from pathlib import Path
 
 from importlib.resources import files
 
-from typing import Collection, Any
+from typing import Any
+from collections.abc import Collection
 
+_KATAPULT_CLONE_URL = "https://github.com/Arksine/katapult.git"
+_COMMON_KATAPULT_LOCATIONS = ["~/katapult", "~/Katapult", "/usr/src/katapult"]
 _COMMON_KLIPPER_LOCATIONS = ["~/klipper", "~/Klipper", "/usr/src/klipper"]
+
+
+def find_katapult():
+    """Find the katapult checkout on the system.
+
+    Returns a Path to the katapult directory if found, or None if not present.
+    Katapult is used for flashing Klipper bootloaders and is required for certain board operations.
+    """
+    for location in _COMMON_KATAPULT_LOCATIONS:
+        path = Path(location).expanduser()
+        # Check if it's a valid katapult checkout (has the repo's .git directory)
+        if path.exists() and (path / ".git").exists():
+            return path
+    return None
 
 
 @cache
@@ -41,7 +59,7 @@ def get_boards():
 def cajole_collection(in_val: Any):
     if type(in_val) is str:
         return in_val
-    elif (in_val is None) or (isinstance(in_val, Collection)):
+    elif (in_val is None) or isinstance(in_val, Collection):
         return in_val
     else:
         return (in_val,)

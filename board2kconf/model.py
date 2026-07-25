@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import logging
+import os
 from functools import cached_property, cache
 from os import PathLike
 from pathlib import Path
@@ -13,14 +14,63 @@ logger = logging.getLogger(__name__)
 
 class BoardDatabase(object):
     def __init__(self, source: TextIO | PathLike | None = None):
-        if source is None:
-            self._boards = list(BoardDefinition.read_from_stream(get_boards()))
-        elif isinstance(source, PathLike):
-            self._boards = list(BoardDefinition.read_from_file(source))
-        elif isinstance(source, TextIO):
-            self._boards = list(BoardDefinition.read_from_stream(source))
+        # Always load default boards first
+        self._boards = list(BoardDefinition.read_from_stream(get_boards()))
+        logger.info(f"Loaded {len(self._boards)} default board(s)")
 
-    def get(self, manufacturer, model, variant):
+        # Overlay user boards from XDG config if present
+        user_path = _get_user_boards_path()
+        if user_path is not None and user_path.exists():
+            try:
+                with open(user_path, "r") as f:
+                    self._overlay_from_stream(f)
+                logger.info(f"Overlayed user boards from {user_path}")
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning(f"Failed to load user boards from {user_path}: {e}")
+
+        if source is not None:
+            # If an explicit source was passed, overlay it on top of defaults + user
+            if isinstance(source, PathLike):
+                self._overlay_from_file(source)
+            elif isinstance(source, TextIO):
+                self._overlay_from_stream(source)
+
+    def _overlay_from_stream(self, stream: TextIO):
+        """Overlay boards from a text stream on top of existing defaults."""
+        json_data = json.load(stream)
+        for category, manufacturers in json_data.items():
+            for manufacturer, products in manufacturers.items():
+                for product, variants in products.items():
+                    for variant, json_defn in variants.items():
+                        try:
+                            board = BoardDefinition.from_data(
+                                manufacturer, product, variant, json_defn
+                            )
+                            self._replace_board(board)
+                        except KeyError as e:
+                            logger.warning(
+                                f"User board definition for {category}/{manufacturer}/{product}/{variant} is missing {e.args[0]}, skipping..."
+                            )
+                            continue
+
+    def _overlay_from_file(self, file: PathLike):
+        with open(file, "r") as f:
+            self._overlay_from_stream(f)
+
+    def _replace_board(self, board):
+        """Replace a board in the internal list if one with the same key exists."""
+        for i, existing in enumerate(self._boards):
+            if (
+                existing.manufacturer == board.manufacturer
+                and existing.model == board.model
+                and existing.variant == board.variant
+            ):
+                self._boards[i] = board
+                return
+        # Board not found — add it as new
+        self._boards.append(board)
+
+    def get_board(self, manufacturer, model, variant):
         if mfr_matches := [x for x in self._boards if x.manufacturer == manufacturer]:
             if model_matches := [x for x in mfr_matches if x.model == model]:
                 if variant_matches := [
@@ -34,6 +84,14 @@ class BoardDatabase(object):
 
     def get_all(self):
         return self._boards.copy()
+
+
+def _get_user_boards_path():
+    """Return the path to user_boards.json in XDG config directory, or None."""
+    xdg_config_home = os.environ.get(
+        "XDG_CONFIG_HOME", str(Path.home() / ".config")
+    )
+    return Path(xdg_config_home) / "klipper-ezflash" / "user_boards.json"
 
 
 @dataclasses.dataclass
