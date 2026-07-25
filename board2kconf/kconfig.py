@@ -176,7 +176,7 @@ class KConfigSymbol(object):
         else:
             self._symbol.set_value(val)
 
-    def get(self):
+    def get_board(self):
         if self._symbol.type == KCL_BOOL:
             if self._symbol.tri_value == 2:
                 return True
