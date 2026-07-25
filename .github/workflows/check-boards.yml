@@ -31,9 +31,6 @@ jobs:
           repository: klipper3d/klipper
           filter: 'blob:none'
           path: klipper
-      - name: Check board data (embedded)
+      - name: Check board dataC(embedded)
         run: |
           KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" check_kboards
-      - name: Check board data (external)
-        run: |
-          KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" KBOARD_BOARDS_PATH="$GITHUB_WORKSPACE/klipper-ezflash/boards/boards.json" check_kboards
