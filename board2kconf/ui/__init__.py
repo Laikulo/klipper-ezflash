@@ -171,10 +171,14 @@ class UI(object):
             selected_variant = board_variants[0]
         return bdb.get_board(selected_mfr, selected_model, selected_variant)
 
-    def _edit_int_setting(self, title: str, current_value: int) -> Tuple[str, int]:
+    def _edit_int_setting(self, title: str, current_value: int, *, input_title: str | None = None) -> Tuple[str, int]:
         """Show an inputbox for editing a numeric setting. Returns (code, value)."""
+        # Use input_title if provided; otherwise derive from title by stripping "Default X" suffixes
+        clean_title = ' '.join(input_title.split()) if input_title else ' '.join(title.split()).replace("DEFAULT", "").strip()
+        prompt = f"Enter a custom value for the {clean_title} (default: {current_value})"
+
         code, user_input = self._dialog.inputbox(
-            f"Enter {title}:",
+            prompt,
             init=str(current_value),
             width=60,
             height=15,
@@ -200,7 +204,7 @@ class UI(object):
             )
             return Dialog.CANCEL, current_value
 
-    def _choose_rate(self, title: str, current_value: int, options: list) -> Tuple[str, int]:
+    def _choose_rate(self, title: str, current_value: int, options: list, *, input_title: str | None = None) -> Tuple[str, int]:
         """Show a menu with predefined rate choices plus 'Custom'. Returns (code, value)."""
 
         preset_values = [v for _, v in options]
@@ -230,7 +234,7 @@ class UI(object):
             selected_tag = tag[5:]
 
             if selected_tag.strip() == "custom":
-                _, new_value = self._edit_int_setting(title, current_value)
+                _, new_value = self._edit_int_setting(title, current_value, input_title=input_title)
                 if new_value != current_value:
                     return Dialog.OK, new_value
             else:
@@ -244,8 +248,8 @@ class UI(object):
             self._dialog.set_background_title("Interface Settings")
 
             choices = [
-                ("can_speed", f"CAN Bit Rate: {settings.can_speed} bps"),
-                ("uart_baudrate", f"UART Baud Rate: {settings.uart_baudrate} bps"),
+                ("can_speed", f"CAN bit rate: {settings.can_speed} bps"),
+                ("uart_baudrate", f"UART baud rate: {settings.uart_baudrate} baud"),
                 ("back", "Exit to main menu"),
             ]
 
@@ -258,10 +262,15 @@ class UI(object):
             if code == Dialog.OK:
                 if tag == "can_speed":
                     can_options = [
-                        ("1M", 1000000),
-                        ("500K", 500000),
+                        ("1M bps", 1000000),
+                        ("500K bps", 500000),
                     ]
-                    _, new_value = self._choose_rate("CAN Bit Rate Selector: default 1M", settings.can_speed, can_options)
+                    _, new_value = self._choose_rate(
+                        "CAN bit rate selector:\nDefault 1M bps",
+                        settings.can_speed,
+                        can_options,
+                        input_title="CAN bit rate",
+                    )
                     if new_value != settings.can_speed:
                         try:
                             settings.can_speed = new_value
@@ -275,17 +284,22 @@ class UI(object):
                             self._dialog.msgbox(str(e), width=60, height=15)
                 elif tag == "uart_baudrate":
                     uart_options = [
-                        ("250K", 250000),
-                        ("230.4K", 230400),
-                        ("115.2K", 115200),
+                        ("250K baud", 250000),
+                        ("230.4K baud", 230400),
+                        ("115.2K baud", 115200),
                     ]
-                    _, new_value = self._choose_rate("UART Baud Rate Selector: default 250K", settings.uart_baudrate, uart_options)
+                    _, new_value = self._choose_rate(
+                        "UART baud rate selector:\nDefault 250K",
+                        settings.uart_baudrate,
+                        uart_options,
+                        input_title="UART baud rate",
+                    )
                     if new_value != settings.uart_baudrate:
                         try:
                             settings.uart_baudrate = new_value
                             settings.save()
                             self._dialog.msgbox(
-                                f"UART Baud Rate updated to {settings.uart_baudrate} bps.\n",
+                                f"UART Baud Rate updated to {settings.uart_baudrate} baud.\n",
                                 width=60,
                                 height=20,
                             )
