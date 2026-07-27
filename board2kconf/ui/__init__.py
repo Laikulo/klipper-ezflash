@@ -204,6 +204,7 @@ class UI(object):
         """Show a menu with predefined rate choices plus 'Custom'. Returns (code, value)."""
 
         preset_values = [v for _, v in options]
+        max_width = max(len(str(v)) for _, v in options)
 
         def build_choices():
             choices = []
@@ -212,7 +213,7 @@ class UI(object):
             for label, value in options:
                 selected_marker = "*" if value == current_value else " "
                 # Tag (left column): "[X]value" where X is * or space — always 5 chars prefix
-                choices.append((f"[{selected_marker}]  {str(value)}", label))
+                choices.append((f"[{selected_marker}]  {str(value):>{max_width}}", label))
             choices.append((f"[{custom_marker}]  custom", "Custom value"))
             return choices
 
