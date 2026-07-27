@@ -105,6 +105,7 @@ class BoardDefinition(object):
     uart: Optional["BoardUARTDefinition"] = None
     status: Optional[str] = None
     klipper_options: Optional[Dict[str, str]] = None
+    optional_features: Optional[list[str]] = None
 
     def __str__(self):
         return f"{self.manufacturer}/{self.model}/{self.variant}"
@@ -197,6 +198,10 @@ class BoardDefinition(object):
             opts["can"] = BoardCANDefinition.from_data(can)
         if (status := definition.get("status")) is not None:
             opts["status"] = status
+        if klipper_opts := definition.get("klipper_options"):
+            opts["klipper_options"] = dict(klipper_opts)
+        if (opt_features := definition.get("optional_features")) is not None:
+            opts["optional_features"] = list(opt_features)
         return cls(**opts)
 
     @cached_property
@@ -223,6 +228,9 @@ class BoardDefinition(object):
             retstr += f"  Status LED on {self.status}\n"
         else:
             retstr += "  No status LED\n"
+
+        if self.optional_features:
+            retstr += f"  Optional features: {', '.join(self.optional_features)}\n"
 
         if self.klipper_options:
             retstr += f"  Advanced options:\n"
