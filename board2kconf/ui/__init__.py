@@ -200,6 +200,36 @@ class UI(object):
             )
             return Dialog.CANCEL, current_value
 
+    def _choose_rate(self, title: str, current_value: int, options: list) -> Tuple[str, int]:
+        """Show a menu with predefined rate choices plus 'Custom'. Returns (code, value)."""
+
+        preset_values = [v for _, v in options]
+
+        def build_choices():
+            choices = []
+            is_custom = current_value not in preset_values
+            custom_marker = "* " if is_custom else "  "
+            for label, value in options:
+                selected_marker = "* " if value == current_value else "  "
+                choices.append((str(value), f"{selected_marker}{label}"))
+            choices.append(("custom", f"{custom_marker}Custom..."))
+            return choices
+
+        while True:
+            code, tag = self._dialog.menu(
+                title,
+                choices=build_choices(),
+                cancel_label="Cancel",
+            )
+            if code != Dialog.OK:
+                return code, current_value
+
+            if tag == "custom":
+                _, new_value = self._edit_int_setting(title, current_value)
+                if new_value != current_value:
+                    current_value = new_value
+            else:
+                return Dialog.OK, int(tag)
     def settings_menu(self):
         """Display the settings dialog with CAN and UART rate options."""
         settings = InterfaceSettings()
@@ -221,7 +251,11 @@ class UI(object):
 
             if code == Dialog.OK:
                 if tag == "can_speed":
-                    _, new_value = self._edit_int_setting("CAN speed (bps), default: 1000000", settings.can_speed)
+                    can_options = [
+                        ("1M", 1000000),
+                        ("500K", 500000),
+                    ]
+                    _, new_value = self._choose_rate("CAN Bit Rate", settings.can_speed, can_options)
                     if new_value != settings.can_speed:
                         try:
                             settings.can_speed = new_value
@@ -234,7 +268,12 @@ class UI(object):
                         except ValueError as e:
                             self._dialog.msgbox(str(e), width=60, height=15)
                 elif tag == "uart_baudrate":
-                    _, new_value = self._edit_int_setting("UART baud rate (bps), default: 250000", settings.uart_baudrate)
+                    uart_options = [
+                        ("250K", 250000),
+                        ("230.4K", 230400),
+                        ("115.2K", 115200),
+                    ]
+                    _, new_value = self._choose_rate("UART Baud Rate", settings.uart_baudrate, uart_options)
                     if new_value != settings.uart_baudrate:
                         try:
                             settings.uart_baudrate = new_value
