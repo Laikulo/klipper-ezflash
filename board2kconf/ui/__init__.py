@@ -231,7 +231,7 @@ class UI(object):
             if selected_tag == "custom":
                 _, new_value = self._edit_int_setting(title, current_value)
                 if new_value != current_value:
-                    current_value = new_value
+                    return Dialog.OK, new_value
             else:
                 return Dialog.OK, int(selected_tag)
 
