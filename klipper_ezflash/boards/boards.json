@@ -814,6 +814,7 @@
             "clock": "8MHz"
           },
           "usb": "PA11/PA12",
+          "status": "PB8",
           "klipper_options": {
             "serial_number": "OrbitoolO2"
           }
@@ -829,6 +830,7 @@
             "clock": "12MHz"
           },
           "usb": "PA11/PA12",
+          "status": "PB13",
           "klipper_options": {
             "serial_number": "OrbitoolO2S"
           }
@@ -844,6 +846,7 @@
             "clock": "8MHz"
           },
           "usb": "PA11/PA12",
+          "status": "PB8",
           "klipper_options": {
             "serial_number": "SO3Tool"
           }
