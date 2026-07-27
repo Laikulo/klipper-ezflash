@@ -1221,6 +1221,7 @@
             "clock": "INTERNAL"
           },
           "usb": "PA11/PA12",
+          "status": "PA4",
           "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
         }
       }
