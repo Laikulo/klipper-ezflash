@@ -211,7 +211,7 @@ class UI(object):
             custom_marker = "*" if is_custom else " "
             for label, value in options:
                 selected_marker = "*" if value == current_value else " "
-                # Tag (left column): "[X]value" where X is * or space — always 3 chars prefix
+                # Tag (left column): "[X]value" where X is * or space — always 5 chars prefix
                 choices.append((f"[{selected_marker}]  {str(value)}", label))
             choices.append((f"[{custom_marker}]  custom", "Custom value"))
             return choices
@@ -225,8 +225,8 @@ class UI(object):
             if code != Dialog.OK:
                 return code, current_value
 
-            # Strip the fixed 3-char prefix "[*]" or "[ ]" to recover the value string
-            selected_tag = tag[3:]
+            # Strip the fixed 5-char prefix "[*]  " or "[ ]  " to recover the value string
+            selected_tag = tag[5:]
 
             if selected_tag == "custom":
                 _, new_value = self._edit_int_setting(title, current_value)
