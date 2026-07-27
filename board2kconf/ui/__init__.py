@@ -208,11 +208,12 @@ class UI(object):
         def build_choices():
             choices = []
             is_custom = current_value not in preset_values
-            custom_marker = "* " if is_custom else "  "
+            custom_marker = "*" if is_custom else " "
             for label, value in options:
-                selected_marker = "* " if value == current_value else "  "
-                choices.append((str(value), f"{selected_marker}{label}"))
-            choices.append(("custom", f"{custom_marker}Custom..."))
+                selected_marker = "*" if value == current_value else " "
+                # Tag (left column): "[X]value" where X is * or space — always 3 chars prefix
+                choices.append((f"[{selected_marker}]  {str(value)}", label))
+            choices.append((f"[{custom_marker}]  custom", "Custom value"))
             return choices
 
         while True:
@@ -224,12 +225,16 @@ class UI(object):
             if code != Dialog.OK:
                 return code, current_value
 
-            if tag == "custom":
+            # Strip the fixed 3-char prefix "[*]" or "[ ]" to recover the value string
+            selected_tag = tag[3:]
+
+            if selected_tag == "custom":
                 _, new_value = self._edit_int_setting(title, current_value)
                 if new_value != current_value:
                     current_value = new_value
             else:
-                return Dialog.OK, int(tag)
+                return Dialog.OK, int(selected_tag)
+
     def settings_menu(self):
         """Display the settings dialog with CAN and UART rate options."""
         settings = InterfaceSettings()
