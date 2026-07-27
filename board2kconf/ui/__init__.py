@@ -207,44 +207,49 @@ class UI(object):
         while True:
             self._dialog.set_background_title("Interface Settings")
 
+            choices = [
+                ("can_speed", f"CAN Bit Rate: {settings.can_speed} bps"),
+                ("uart_baudrate", f"UART Baud Rate: {settings.uart_baudrate} bps"),
+                ("back", "Exit to main menu"),
+            ]
+
             code, tag = self._dialog.menu(
                 "Communication Settings",
-                choices=[
-                    ("can_speed", f"CAN Bit Rate: {settings.can_speed} bps"),
-                    ("uart_baudrate", f"UART Baud Rate: {settings.uart_baudrate} bps"),
-                    ("save", "Save and Exit"),
-                    ("cancel", "Cancel (Discard Changes)"),
-                ],
+                choices=choices,
                 cancel_label="Exit",
             )
 
             if code == Dialog.OK:
                 if tag == "can_speed":
-                    _, new_value = self._edit_int_setting("CAN speed (bps)", settings.can_speed)
+                    _, new_value = self._edit_int_setting("CAN speed (bps), default: 1000000", settings.can_speed)
                     if new_value != settings.can_speed:
                         try:
                             settings.can_speed = new_value
+                            settings.save()
+                            self._dialog.msgbox(
+                                f"CAN Speed updated to {settings.can_speed} bps.\n",
+                                width=60,
+                                height=20,
+                            )
                         except ValueError as e:
                             self._dialog.msgbox(str(e), width=60, height=15)
                 elif tag == "uart_baudrate":
-                    _, new_value = self._edit_int_setting("UART baud rate (bps)", settings.uart_baudrate)
+                    _, new_value = self._edit_int_setting("UART baud rate (bps), default: 250000", settings.uart_baudrate)
                     if new_value != settings.uart_baudrate:
                         try:
                             settings.uart_baudrate = new_value
+                            settings.save()
+                            self._dialog.msgbox(
+                                f"UART Baud Rate updated to {settings.uart_baudrate} bps.\n",
+                                width=60,
+                                height=20,
+                            )
                         except ValueError as e:
                             self._dialog.msgbox(str(e), width=60, height=15)
-                elif tag == "save":
-                    settings.save()
-                    self._dialog.msgbox(
-                        f"Settings saved successfully.\n\nCAN Speed: {settings.can_speed} bps\nUART Baud Rate: {settings.uart_baudrate} bps",
-                        width=60,
-                        height=20,
-                    )
+                elif tag == "back":
                     return True
-                elif tag == "cancel":
-                    return False
             elif code in (Dialog.CANCEL, Dialog.ESC):
-                return False
+                return True
 
     def menus(self):
         while True:
