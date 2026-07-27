@@ -214,7 +214,7 @@ class UI(object):
                 selected_marker = "*" if value == current_value else " "
                 # Tag (left column): "[X]value" where X is * or space — always 5 chars prefix
                 choices.append((f"[{selected_marker}]  {str(value):>{max_width}}", label))
-            choices.append((f"[{custom_marker}]  custom", "Custom value"))
+            choices.append((f"[{custom_marker}]  custom", "Enter a custom value"))
             return choices
 
         while True:
@@ -261,7 +261,7 @@ class UI(object):
                         ("1M", 1000000),
                         ("500K", 500000),
                     ]
-                    _, new_value = self._choose_rate("CAN Bit Rate", settings.can_speed, can_options)
+                    _, new_value = self._choose_rate("CAN Bit Rate Selector: default 1M", settings.can_speed, can_options)
                     if new_value != settings.can_speed:
                         try:
                             settings.can_speed = new_value
@@ -279,7 +279,7 @@ class UI(object):
                         ("230.4K", 230400),
                         ("115.2K", 115200),
                     ]
-                    _, new_value = self._choose_rate("UART Baud Rate", settings.uart_baudrate, uart_options)
+                    _, new_value = self._choose_rate("UART Baud Rate Selector: default 250K", settings.uart_baudrate, uart_options)
                     if new_value != settings.uart_baudrate:
                         try:
                             settings.uart_baudrate = new_value
