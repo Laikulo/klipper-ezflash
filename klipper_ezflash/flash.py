@@ -17,6 +17,40 @@ def _run(cmd: list, cwd: Optional[Path] = None) -> None:
         raise EZFException(f"Command failed: {' '.join(cmd)}", e)
 
 
+def _run_check_output(cmd: list, cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
+    """Run a command and return the CompletedProcess with captured output."""
+    try:
+        return subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=cwd)
+    except subprocess.CalledProcessError as e:
+        raise EZFException(f"Command failed: {' '.join(cmd)}", e)
+
+
+def _run_with_success_check(
+    cmd: list,
+    success_patterns: Optional[list[str]] = None,
+    cwd: Optional[Path] = None,
+) -> subprocess.CompletedProcess:
+    """Run a command that may return non-zero exit code but still succeed.
+
+    If `success_patterns` is provided and any pattern appears in stdout on success,
+    the call does NOT raise even if the process exited with a non-zero status.
+    """
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+
+    # Normal case: exit code 0 — always succeed
+    if result.returncode == 0:
+        return result
+
+    # Check for success patterns in stdout even on failure
+    if success_patterns:
+        for pattern in success_patterns:
+            if pattern in result.stdout:
+                return result
+
+    # No success pattern matched — raise the original error
+    raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+
+
 def compile_katapult(katapult_path: Optional[Path] = None) -> Path:
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
@@ -83,7 +117,10 @@ def flash_stm32_katapult(katapult_path: Optional[Path] = None, device_vidpid: st
     binpath = kp / "out" / "katapult.bin"
     if not binpath.exists():
         raise EZFException(f"Katapult binary not found at {binpath}")
-    _run([str(dfu), "-a", "0", "-s", "0x08000000:mass-erase:force:leave", "-D", str(binpath), "-d", device_vidpid])
+    _run_with_success_check(
+        [str(dfu), "-a", "0", "-s", "0x08000000:mass-erase:force:leave", "-D", str(binpath), "-d", device_vidpid],
+        success_patterns=["File downloaded successfully"],
+    )
 
 
 def flash_firmware_via_flashtool(katapult_path: Optional[Path], klipper_bin: Path, interface: str, identifier: str, can_iface: Optional[str] = None) -> None:
