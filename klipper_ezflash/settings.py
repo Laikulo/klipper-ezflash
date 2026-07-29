@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CAN_SPEED = 1000000
 DEFAULT_UART_BAUDRATE = 250000
+DEFAULT_CAN_INTERFACE = "can0"
 
 
 def _get_settings_path() -> Path:
@@ -30,6 +31,7 @@ class InterfaceSettings:
         # Load existing settings or create defaults
         self.can_speed = DEFAULT_CAN_SPEED
         self.uart_baudrate = DEFAULT_UART_BAUDRATE
+        self.can_interface = DEFAULT_CAN_INTERFACE
         
         if self._path.exists():
             try:
@@ -39,6 +41,8 @@ class InterfaceSettings:
                     self.can_speed = int(data["can_speed"])
                 if "uart_baudrate" in data:
                     self.uart_baudrate = int(data["uart_baudrate"])
+                if "can_interface" in data:
+                    self.can_interface = str(data["can_interface"])
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"Failed to load settings from {self._path}: {e}")
         else:
@@ -71,6 +75,7 @@ class InterfaceSettings:
         data = {
             "can_speed": self.can_speed,
             "uart_baudrate": self.uart_baudrate,
+            "can_interface": self.can_interface,
         }
         with open(self._path, "w") as f:
             json.dump(data, f, indent=4)
@@ -80,6 +85,7 @@ class InterfaceSettings:
         return {
             "can_speed": self.can_speed,
             "uart_baudrate": self.uart_baudrate,
+            "can_interface": self.can_interface,
         }
 
     @classmethod

@@ -150,7 +150,7 @@ main() {
     dialog --infobox "Checking dependencies..." 3 30
     typeset -a missing_pkgs
     missing_debs=()
-    for pkgname in python3 python3-pip python3-venv git; do
+    for pkgname in python3 python3-pip python3-venv python3-serial git; do
       log "checking $pkgname"
       dpkg-query --show "$pkgname" |& log_tee dpkg-query >/dev/null
       if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
@@ -215,8 +215,26 @@ main() {
   ln -s "$pyenv/bin/ezf" "$HOME/.local/bin"
   ln -s "$pyenv/bin/ezf" "$HOME/ezf"
 
+  # Install udev rules for ST DFU so dfu-util can run without sudo
+  install_udev_rules
+
   dialog --clear --msgbox "Installation complete!" 5 30
   clear
+}
+
+install_udev_rules() {
+  # Create a udev rule to allow access to ST DFU devices (0483:df11).
+  # Use MODE=0660 and GROUP=plugdev by default.
+  local rulefile="/etc/udev/rules.d/99-st-dfu.rules"
+  log "Installing udev rule $rulefile"
+  become sh -c "cat > $rulefile <<'UDEVEOF'
+# STMicroelectronics DFU (0483:df11)
+ATTRS{idVendor}==\"0483\", ATTRS{idProduct}==\"df11\", MODE=\"0660\", GROUP=\"plugdev\"
+UDEVEOF"
+  # Reload udev rules and trigger
+  become udevadm control --reload-rules
+  become udevadm trigger
+  log "udev rule installed"
 }
 
 trap handle_exit EXIT

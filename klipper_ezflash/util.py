@@ -1,5 +1,6 @@
 import os
 import subprocess
+import shutil
 from functools import cache
 from pathlib import Path
 
@@ -63,6 +64,26 @@ def cajole_collection(in_val: Any):
         return in_val
     else:
         return (in_val,)
+
+
+@cache
+def find_tool(name: str) -> Path | None:
+    """Locate a system tool by name. Returns a Path or None if not found.
+
+    Checks `shutil.which` first, then a few common locations.
+    """
+    # Quick path via PATH
+    if (p := shutil.which(name)):
+        return Path(p)
+
+    # Common locations to try
+    common = [f"/usr/bin/{name}", f"/usr/local/bin/{name}", f"/opt/homebrew/bin/{name}"]
+    for c in common:
+        p = Path(c)
+        if p.exists() and os.access(p, os.X_OK):
+            return p
+
+    return None
 
 
 @cache
