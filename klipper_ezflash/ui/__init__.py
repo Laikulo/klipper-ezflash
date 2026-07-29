@@ -7,6 +7,11 @@ from typing import Tuple, Optional
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
 from ..util import find_katapult, _KATAPULT_CLONE_URL
+from ..session import load_session, save_session, clear_session, SessionData
+from .. import device as device_mod
+from .. import flash as flash_mod
+from .. import detect as detect_mod
+from ..fault import EZFException
 
 from dialog import Dialog
 
@@ -114,6 +119,7 @@ class UI(object):
             "What would you like to do?",
             choices=[
                 ("boardinfo", "Lookup information about a board"),
+                ("flash", "Flash a board"),
                 ("settings", "Edit the default communication settings"),
                 ("crash", "Intentionally crash"),
                 ("exit", "Exit"),
@@ -256,8 +262,17 @@ class UI(object):
             choices = [
                 ("can_speed", f"CAN bit rate: {settings.can_speed} bps"),
                 ("uart_baudrate", f"UART baud rate: {settings.uart_baudrate} baud"),
-                ("back", "Exit to main menu"),
             ]
+
+            # Only show CAN interface selection if more than one CAN interface is present
+            try:
+                can_list = detect_mod.list_can_interfaces()
+            except Exception:
+                can_list = []
+            if len(can_list) > 1:
+                choices.append(("can_interface", f"CAN interface: {settings.can_interface}"))
+
+            choices.append(("back", "Exit to main menu"))
 
             code, tag = self._dialog.menu(
                 "Communication Settings",
@@ -311,10 +326,224 @@ class UI(object):
                             )
                         except ValueError as e:
                             self._dialog.msgbox(str(e), width=60, height=15)
+                elif tag == "can_interface":
+                    # Let user pick from detected CAN interfaces
+                    try:
+                        can_list = detect_mod.list_can_interfaces()
+                    except Exception:
+                        can_list = []
+                    if not can_list:
+                        self._dialog.msgbox("No CAN interfaces detected on host.", width=60, height=8)
+                        continue
+                    choices = [(str(i), n) for i, n in enumerate(can_list)]
+                    code, tag = self._dialog.menu(
+                        "Select CAN interface to use:",
+                        choices=choices,
+                        cancel_label="Cancel",
+                    )
+                    if code != Dialog.OK:
+                        continue
+                    chosen = can_list[int(tag)]
+                    try:
+                        settings.can_interface = chosen
+                        settings.save()
+                        self._dialog.msgbox(f"CAN interface set to {chosen}", width=60, height=8)
+                    except Exception as e:
+                        self._dialog.msgbox(str(e), width=60, height=12)
                 elif tag == "back":
                     return True
             elif code in (Dialog.CANCEL, Dialog.ESC):
                 return True
+
+    def start_flash_flow(self, resume_session: Optional[SessionData] = None):
+        """Orchestrate the flash flow: compile -> detect bootloader -> flash -> post-detect.
+
+        If `resume_session` is provided, attempt to continue from the saved step index.
+        """
+        session = resume_session
+
+        if session is None:
+            board = self.select_board()
+            if not board:
+                return
+            # If the board exposes multiple interfaces, ask the user which to use
+            chosen_if_type = None
+            ifaces = board.interfaces if hasattr(board, 'interfaces') else []
+            if len(ifaces) > 1:
+                choices = [(str(i), if_.pretty()) for i, if_ in enumerate(ifaces)]
+                code, tag = self._dialog.menu(
+                    "This board supports multiple interfaces. Which interface do you want to use?",
+                    choices=choices,
+                    cancel_label="Cancel",
+                )
+                if code != Dialog.OK:
+                    return
+                chosen_if_type = ifaces[int(tag)].if_type
+            else:
+                chosen_if_type = (ifaces[0].if_type if ifaces else None)
+
+            session = SessionData(
+                step_index=0,
+                mcu_arch=board.mcu.arch,
+                interface=(chosen_if_type.lower() if chosen_if_type else None),
+                manufacturer=board.manufacturer,
+                model=board.model,
+                variant=board.variant,
+            )
+            save_session(session)
+
+        if session.step_index >= 4:
+            self._dialog.infobox(
+                "A previously completed flash session was found. Starting fresh.",
+                width=60,
+                height=8,
+            )
+            try:
+                clear_session()
+            except Exception:
+                pass
+            return
+
+        while True:
+            try:
+                # Only perform a build when starting a fresh session (step_index 0).
+                # If resuming after a timeout or failure, reuse existing build artifacts.
+                if session.step_index <= 0:
+                    self._dialog.infobox(
+                        "Compiling katapult and firmware. This may take a while.",
+                        width=60,
+                        height=10,
+                    )
+                    flash_mod.compile_katapult()
+                    klipper_bin = flash_mod.compile_firmware()
+                    session.step_index = 1
+                    save_session(session)
+                else:
+                    klipper_bin = flash_mod.locate_firmware()
+                    if klipper_bin is None:
+                        raise EZFException(
+                            "Compiled klipper firmware not found in out/; please start a fresh session to compile."
+                        )
+
+                if session.step_index <= 1:
+                    self._dialog.infobox(
+                        "Waiting for bootloader to appear. Please put the device into bootloader mode.",
+                        width=60,
+                        height=8,
+                    )
+                    dev = device_mod.verify_bootloader_connected(session.mcu_arch)
+                    # Validate against board (best-effort — board may be missing in resume)
+                    try:
+                        b = None
+                        try:
+                            if self._board_db is None:
+                                self._board_db = BoardDatabase()
+                            b = next(
+                                (x for x in self._board_db.get_all() if x.mcu.arch == session.mcu_arch),
+                                None,
+                            )
+                        except Exception:
+                            b = None
+                        if b is not None:
+                            device_mod.validate_device(dev, b.mcu.arch)
+                    except Exception as e:
+                        self._dialog.msgbox(f"Device validation failed: {e}", width=80, height=12)
+                        raise
+                    session.detected_devices.append(dev)
+                    session.step_index = 2
+                    save_session(session)
+
+                if session.step_index <= 2:
+                    arch = (session.mcu_arch or "").lower()
+                    self._dialog.infobox(
+                        "Re-checking bootloader before flashing. Please keep the device connected.",
+                        width=60,
+                        height=10,
+                    )
+                    stable_dev = device_mod.verify_bootloader_connected(session.mcu_arch)
+                    session.detected_devices.append(stable_dev)
+                    save_session(session)
+                    self._dialog.infobox(
+                        f"Bootloader appears stable: {stable_dev.get('raw', '<unknown>')}\n\nStarting bootloader flash now.",
+                        width=70,
+                        height=12,
+                    )
+                    if "rp2040" in arch or "rp2" in arch:
+                        flash_mod.flash_rp2040_katapult()
+                    elif "stm32" in arch:
+                        flash_mod.flash_stm32_katapult()
+                    else:
+                        try:
+                            flash_mod.flash_rp2040_katapult()
+                        except Exception:
+                            try:
+                                flash_mod.flash_stm32_katapult()
+                            except Exception:
+                                raise EZFException("Unsupported MCU architecture for automatic katapult flash")
+                    session.step_index = 3
+                    save_session(session)
+
+                if session.step_index <= 3:
+                    iface = (session.interface or "").lower() if session.interface else "usb"
+                    if "can" in iface:
+                        can_list = detect_mod.list_can_interfaces()
+                        if not can_list:
+                            raise EZFException("No CAN network interfaces detected on host (e.g. can0).")
+                        settings = InterfaceSettings()
+                        if settings.can_interface and settings.can_interface in can_list:
+                            chosen_can = settings.can_interface
+                        elif len(can_list) == 1:
+                            chosen_can = can_list[0]
+                        else:
+                            choices = [(str(i), n) for i, n in enumerate(can_list)]
+                            code, tag = self._dialog.menu(
+                                "Multiple CAN interfaces detected. Which one should be used?",
+                                choices=choices,
+                                cancel_label="Cancel",
+                            )
+                            if code != Dialog.OK:
+                                raise EZFException("User cancelled CAN interface selection")
+                            chosen_can = can_list[int(tag)]
+
+                        uuids = detect_mod.detect_can_uuid(interface=chosen_can)
+                        uid = uuids[0]
+                        flash_mod.flash_firmware_via_flasktool(None, klipper_bin, "can", uid, can_iface=chosen_can)
+                        self._dialog.infobox(f"Flashed firmware to CAN device UUID {uid}", width=80, height=8)
+                    else:
+                        devs = detect_mod.detect_usb_serial_by_id()
+                        if not devs:
+                            raise EZFException("No Klipper USB device found after flashing")
+                        serial_path = str(devs[0])
+                        flash_mod.flash_firmware_via_flasktool(None, klipper_bin, "serial", serial_path)
+                        self._dialog.infobox(f"Flashed firmware to serial device {serial_path}", width=80, height=8)
+                    session.step_index = 4
+                    save_session(session)
+
+                try:
+                    clear_session()
+                except Exception:
+                    pass
+                self._dialog.infobox("Flash flow completed successfully.", width=60, height=8)
+                return
+            except Exception as e:
+                code = self._dialog.yesno(
+                    f"An error occurred during the flash flow:\n\n{e}\n\nRetry from the current step?",
+                    yes_label="Retry",
+                    no_label="Abort",
+                    defaultno=True,
+                )
+                if code == Dialog.OK:
+                    continue
+                try:
+                    clear_session()
+                except Exception:
+                    pass
+                self._dialog.msgbox(
+                    "Flash aborted. The current session has been cleared.",
+                    width=70,
+                    height=12,
+                )
+                return
 
     def menus(self):
         while True:
@@ -327,6 +556,13 @@ class UI(object):
                     self._dialog.msgbox(board.pretty(), width=100, height=20)
                 elif tag == "settings":
                     self.settings_menu()
+                elif tag == "flash":
+                    # Start flash flow (new session)
+                    try:
+                        self.start_flash_flow()
+                    except Exception as e:
+                        # Show error and continue
+                        self._dialog.msgbox(str(e), width=80, height=20)
                 elif tag == "exit":
                     return 0
                 elif tag == "crash":
@@ -341,6 +577,24 @@ class UI(object):
 
     def launch(self):
         try:
+            # On startup, check for an existing saved session and offer to resume
+            try:
+                existing = load_session()
+            except Exception:
+                existing = None
+            if existing is not None:
+                code, tag = self._dialog.menu(
+                    "A previous flash session was detected.\n\nResume or start a new flash?",
+                    choices=[("resume", "Resume previous flash"), ("new", "Start a new flash")],
+                    cancel_label="Start new",
+                )
+                if code == Dialog.OK and tag == "resume":
+                    # user chose resume — attempt to continue
+                    try:
+                        self.start_flash_flow(resume_session=existing)
+                    except Exception as e:
+                        self._dialog.msgbox(f"Failed to resume session: {e}", width=80, height=20)
+
             code = self._dialog.yesno(
                 "This is WIP tooling.\n\nIt may eat your cat and/or firmware\nBe warned!",
                 defaultno=True,
