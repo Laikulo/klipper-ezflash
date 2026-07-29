@@ -21,6 +21,8 @@ class BoardDatabase(object):
         # Always load default boards first
         self._boards = list(BoardDefinition.read_from_stream(get_boards()))
         logger.info(f"Loaded {len(self._boards)} default board(s)")
+        # Warnings collected while attempting to load/validate user or external boards
+        self._load_warnings = []
 
         # Overlay user boards from XDG config if present
         user_path = _get_user_boards_path()
@@ -32,6 +34,11 @@ class BoardDatabase(object):
                 logger.info(f"Overlayed user boards from {user_path}")
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"Failed to load user boards from {user_path}: {e}")
+                # Record a user-facing parse/load warning so the UI can show it
+                try:
+                    self._load_warnings.append(f"Failed to load user_boards.json: {e}")
+                except Exception:
+                    pass
 
         if source is not None:
             # If an explicit source was passed, overlay it on top of defaults + user
@@ -45,9 +52,18 @@ class BoardDatabase(object):
                     self._overlay_from_stream(source)
                 except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse provided board source: {e}")
+                    try:
+                        self._load_warnings.append(f"Failed to parse provided board source: {e}")
+                    except Exception:
+                        pass
 
-    def _overlay_from_data(self, json_data: dict):
-        """Overlay boards from an already-parsed JSON dictionary."""
+    def _overlay_from_data(self, json_data: dict, errors_list: Optional[list] = None):
+        """Overlay boards from an already-parsed JSON dictionary.
+
+        errors_list, if provided, will be appended with human-readable messages
+        describing any variants that were skipped due to missing or malformed
+        fields. The same messages are also stored in self._load_warnings.
+        """
         for category, manufacturers in json_data.items():
             for manufacturer, products in manufacturers.items():
                 for product, variants in products.items():
@@ -58,9 +74,13 @@ class BoardDatabase(object):
                             )
                             self._replace_board(board)
                         except KeyError as e:
-                            logger.warning(
+                            msg = (
                                 f"User board definition for {category}/{manufacturer}/{product}/{variant} is missing {e.args[0]}, skipping..."
                             )
+                            logger.warning(msg)
+                            if errors_list is not None:
+                                errors_list.append(msg)
+                            self._load_warnings.append(msg)
                             continue
 
     def _overlay_from_stream(self, stream: TextIO):
@@ -75,31 +95,58 @@ class BoardDatabase(object):
 
         # Load schema and validate; schema is shipped with the package
         schema_path = Path(__file__).parent / "boards" / "v1.schema.json"
-        errors = _validate_boards_json(json_data, schema_path)
-        if errors:
-            # Log each validation error
-            for e in errors:
+        schema_errors = _validate_boards_json(json_data, schema_path)
+        if schema_errors:
+            for e in schema_errors:
                 logger.warning(f"user_boards.json schema violation: {e}")
-            # Try to show a dialog to inform the user when running interactively
+            # Do not append raw schema messages to _load_warnings here; they
+            # will be transformed into user-friendly messages and stored after
+            # collecting per-variant skipped messages so we can deduplicate.
+
+        # Proceed to overlay — collect per-variant skipped messages so we can
+        # present a concise summary to the user. Collect both schema errors and
+        # per-variant skipped messages and show a single combined dialog so the
+        # user is not prompted multiple times for the same underlying issue.
+        skipped = []
+        self._overlay_from_data(json_data, errors_list=skipped)
+
+        # Combine schema and skipped messages into one deduplicated list for storage
+        combined = []
+        # Transform schema errors into per-variant missing-field messages when possible
+        import re
+        for s in schema_errors:
             try:
-                from dialog import Dialog
+                path, msg = s.split(": ", 1)
+            except ValueError:
+                # Unexpected format, keep raw schema message
+                combined.append(f"user_boards.json: {s}")
+                continue
+            path_parts = path.split("/")
+            # If schema pinpoints a missing property in 'mcu', produce the same
+            # human-friendly message used elsewhere and avoid double-reporting
+            if path_parts and path_parts[-1] == "mcu" and "required property" in msg:
+                # Extract the missing property's name from the message
+                m = re.search(r"'([^']+)'", msg)
+                if m:
+                    field = m.group(1)
+                    variant_path = "/".join(path_parts[:-1])
+                    combined.append(f"User board definition for {variant_path} is missing {field}, skipping...")
+                    continue
+            # Fallback: include the schema message but tag it with the filename
+            combined.append(f"user_boards.json: {s}")
 
-                d = Dialog(dialog="dialog")
-                # Combine a limited number of errors so the dialog stays readable
-                max_display = 25
-                to_display = errors[:max_display]
-                more = len(errors) - len(to_display)
-                msg = "The user boards file contains schema validation errors:\n\n"
-                msg += "\n".join(to_display)
-                if more > 0:
-                    msg += f"\n\n...and {more} more errors not shown"
-                d.msgbox(msg, width=80, height=20)
-            except Exception:
-                # Non-interactive environment or dialog not available — already logged
-                pass
+        combined.extend(skipped)
+        # Deduplicate while preserving order
+        deduped = []
+        for msg in combined:
+            if msg not in deduped:
+                deduped.append(msg)
 
-        # Proceed to overlay — existing behavior will skip invalid entries
-        self._overlay_from_data(json_data)
+        # Store deduplicated messages in the persistent load warnings list
+        # Clear any previously appended raw schema messages
+        self._load_warnings = deduped.copy()
+        if deduped:
+            logger.info("User boards load produced %d warning(s)", len(deduped))
 
     def _overlay_from_file(self, file: PathLike):
         with open(file, "r") as f:
@@ -133,6 +180,14 @@ class BoardDatabase(object):
     def get_all(self):
         return self._boards.copy()
 
+    def get_load_warnings(self) -> list:
+        """Return a copy of warnings collected during the last user/external load attempt."""
+        return list(self._load_warnings)
+
+    def clear_load_warnings(self) -> None:
+        """Clear stored load warnings."""
+        self._load_warnings.clear()
+
 
 def _get_user_boards_path():
     """Return the path to user_boards.json in XDG config directory, or None."""
@@ -147,6 +202,9 @@ def _validate_boards_json(data: dict, schema_path: Path) -> list:
 
     Returns a list of human-readable error strings. An empty list means validation passed.
     """
+    if Draft7Validator is None:
+        logger.debug("jsonschema not available; skipping user boards schema validation")
+        return []
     try:
         with open(schema_path, "r") as sf:
             schema = json.load(sf)
@@ -162,6 +220,23 @@ def _validate_boards_json(data: dict, schema_path: Path) -> list:
         path = "/".join(str(p) for p in err.absolute_path) or "<root>"
         errors.append(f"{path}: {err.message}")
     return sorted(errors)
+
+
+def _try_show_dialog(message: str, title: Optional[str] = None):
+    """Attempt to show a dialog.msgbox with the provided message.
+
+    Best-effort: failures (non-interactive env, dialog missing) are silently ignored
+    because the condition is already logged.
+    """
+    try:
+        from dialog import Dialog
+
+        d = Dialog(dialog="dialog")
+        if title:
+            d.set_background_title(title)
+        d.msgbox(message, width=80, height=20)
+    except Exception:
+        logger.debug("Could not show dialog to user (non-interactive or dialog not installed)")
 
 
 @dataclasses.dataclass

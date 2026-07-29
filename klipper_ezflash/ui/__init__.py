@@ -2,7 +2,7 @@ from sys import exit, stderr
 import subprocess
 import traceback
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional
 
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
@@ -17,6 +17,9 @@ class UI(object):
         self._dialog = Dialog(dialog="dialog", autowidgetsize=True)
         self._dialog.add_persistent_args(("--no-collapse",))
         self._katapult_checked = False
+        # BoardDatabase instantiated at startup so any user-board load warnings can be
+        # surfaced immediately to the user via a dialog.
+        self._board_db = None
 
     def _check_katapult(self):
         """Check if katapult is installed; prompt user to clone it if missing.
@@ -119,7 +122,10 @@ class UI(object):
         )
 
     def select_board(self):
-        bdb = BoardDatabase()
+        # Re-use the DB instance created at startup if present, otherwise lazily create it
+        if self._board_db is None:
+            self._board_db = BoardDatabase()
+        bdb = self._board_db
         board = list(bdb.get_all())
         manufacturers = tuple(sorted(set([b.manufacturer for b in board])))
         code, tag = self._dialog.menu(
@@ -171,7 +177,7 @@ class UI(object):
             selected_variant = board_variants[0]
         return bdb.get_board(selected_mfr, selected_model, selected_variant)
 
-    def _edit_int_setting(self, title: str, current_value: int, *, input_title: str | None = None) -> Tuple[str, int]:
+    def _edit_int_setting(self, title: str, current_value: int, *, input_title: Optional[str] = None) -> Tuple[str, int]:
         """Show an inputbox for editing a numeric setting. Returns (code, value)."""
         # Use input_title if provided; otherwise derive from title by stripping "Default X" suffixes
         clean_title = ' '.join(input_title.split()) if input_title else ' '.join(title.split()).replace("DEFAULT", "").strip()
@@ -204,7 +210,7 @@ class UI(object):
             )
             return Dialog.CANCEL, current_value
 
-    def _choose_rate(self, title: str, current_value: int, options: list, *, input_title: str | None = None) -> Tuple[str, int]:
+    def _choose_rate(self, title: str, current_value: int, options: list, *, input_title: Optional[str] = None) -> Tuple[str, int]:
         """Show a menu with predefined rate choices plus 'Custom'. Returns (code, value)."""
 
         preset_values = [v for _, v in options]
@@ -342,6 +348,54 @@ class UI(object):
                 no_label="Quit",
             )
             if code == Dialog.OK:
+                # Instantiate the board database early so any user-board load warnings
+                # can be shown to the user before they interact with the menus.
+                try:
+                    # Import the model module at runtime to ensure we get the latest BoardDatabase
+                    import importlib
+                    m = importlib.import_module('klipper_ezflash.model')
+                    importlib.reload(m)
+                    self._board_db = m.BoardDatabase()
+                    warnings = self._board_db.get_load_warnings()
+                    if warnings:
+                        # Show a concise dialog summarizing the problems
+                        max_show = 25
+                        msg = "Issues detected while loading user_boards.json:\n\n"
+                        # Present each issue on its own line and avoid repeating reasons
+                        msg += "\n".join(warnings[:max_show])
+                        if len(warnings) > max_show:
+                            msg += f"\n\n...and {len(warnings)-max_show} more"
+                        try:
+                            # Ask the user whether to continue despite the warnings.
+                            # Use yes=Continue, no=Quit semantics.
+                            code = self._dialog.yesno(
+                                msg + "\n\nDo you want to continue anyway?",
+                                yes_label="Continue",
+                                no_label="Quit",
+                                defaultno=False,
+                            )
+                            if code != Dialog.OK:
+                                # User chose to quit — exit the program cleanly
+                                print("Exiting per user request.")
+                                exit(0)
+                        except Exception as dialog_exc:
+                            # Dialog unavailable or failed; fall back to stderr so the
+                            # user (or service manager) can see the warnings in logs.
+                            print('\n' + '*** WARNING: Issues detected while loading user_boards.json ***', file=stderr)
+                            for line in warnings:
+                                print('- ' + line, file=stderr)
+                            print('\n', file=stderr)
+                            print('Non-interactive session: continuing despite the warnings.', file=stderr)
+                        finally:
+                            # Clear stored warnings so they are not shown again in-session
+                            try:
+                                self._board_db.clear_load_warnings()
+                            except Exception:
+                                pass
+                except Exception:
+                    # If DB instantiation fails, continue to menus
+                    pass
+
                 self._check_katapult()
                 self.menus()
         except KeyboardInterrupt:
