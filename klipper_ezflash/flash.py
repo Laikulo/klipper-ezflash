@@ -83,11 +83,10 @@ def flash_stm32_katapult(katapult_path: Optional[Path] = None, device_vidpid: st
     binpath = kp / "out" / "katapult.bin"
     if not binpath.exists():
         raise EZFException(f"Katapult binary not found at {binpath}")
-    # user may need sudo depending on permissions; we attempt direct call
     _run([str(dfu), "-a", "0", "-s", "0x08000000:mass-erase:force:leave", "-D", str(binpath), "-d", device_vidpid])
 
 
-def flash_firmware_via_flasktool(katapult_path: Optional[Path], klipper_bin: Path, interface: str, identifier: str, can_iface: Optional[str] = None) -> None:
+def flash_firmware_via_flashtool(katapult_path: Optional[Path], klipper_bin: Path, interface: str, identifier: str, can_iface: Optional[str] = None) -> None:
     """Flash klipper firmware using katapult's flashtool.py.
 
     `interface` is either a serial path or 'can0'. `identifier` is a UUID or serial argument as required.
