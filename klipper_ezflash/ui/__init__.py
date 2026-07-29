@@ -507,14 +507,14 @@ class UI(object):
 
                         uuids = detect_mod.detect_can_uuid(interface=chosen_can)
                         uid = uuids[0]
-                        flash_mod.flash_firmware_via_flasktool(None, klipper_bin, "can", uid, can_iface=chosen_can)
+                        flash_mod.flash_firmware_via_flashtool(None, klipper_bin, "can", uid, can_iface=chosen_can)
                         self._dialog.infobox(f"Flashed firmware to CAN device UUID {uid}", width=80, height=8)
                     else:
                         devs = detect_mod.detect_usb_serial_by_id()
                         if not devs:
                             raise EZFException("No Klipper USB device found after flashing")
                         serial_path = str(devs[0])
-                        flash_mod.flash_firmware_via_flasktool(None, klipper_bin, "serial", serial_path)
+                        flash_mod.flash_firmware_via_flashtool(None, klipper_bin, "serial", serial_path)
                         self._dialog.infobox(f"Flashed firmware to serial device {serial_path}", width=80, height=8)
                     session.step_index = 4
                     save_session(session)
