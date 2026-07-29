@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Union, Optional, Dict, TextIO
 
 from .util import get_boards
+try:
+    from jsonschema import Draft7Validator
+except Exception:
+    Draft7Validator = None  # jsonschema is optional at runtime; validation will be skipped if unavailable
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,7 @@ class BoardDatabase(object):
         if user_path is not None and user_path.exists():
             try:
                 with open(user_path, "r") as f:
+                    # validate and overlay; _overlay_from_stream handles validation warnings
                     self._overlay_from_stream(f)
                 logger.info(f"Overlayed user boards from {user_path}")
             except (json.JSONDecodeError, OSError) as e:
@@ -31,13 +36,18 @@ class BoardDatabase(object):
         if source is not None:
             # If an explicit source was passed, overlay it on top of defaults + user
             if isinstance(source, PathLike):
-                self._overlay_from_file(source)
+                try:
+                    self._overlay_from_file(source)
+                except (json.JSONDecodeError, OSError) as e:
+                    logger.warning(f"Failed to load boards from {source}: {e}")
             elif isinstance(source, TextIO):
-                self._overlay_from_stream(source)
+                try:
+                    self._overlay_from_stream(source)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse provided board source: {e}")
 
-    def _overlay_from_stream(self, stream: TextIO):
-        """Overlay boards from a text stream on top of existing defaults."""
-        json_data = json.load(stream)
+    def _overlay_from_data(self, json_data: dict):
+        """Overlay boards from an already-parsed JSON dictionary."""
         for category, manufacturers in json_data.items():
             for manufacturer, products in manufacturers.items():
                 for product, variants in products.items():
@@ -52,6 +62,44 @@ class BoardDatabase(object):
                                 f"User board definition for {category}/{manufacturer}/{product}/{variant} is missing {e.args[0]}, skipping..."
                             )
                             continue
+
+    def _overlay_from_stream(self, stream: TextIO):
+        """Overlay boards from a text stream on top of existing defaults.
+
+        This function performs JSON Schema validation against the packaged
+        v1.schema.json. Validation errors are logged and (when possible)
+        shown to the user in a dialog, but loading continues — invalid
+        entries are skipped by the existing overlay logic.
+        """
+        json_data = json.load(stream)
+
+        # Load schema and validate; schema is shipped with the package
+        schema_path = Path(__file__).parent / "boards" / "v1.schema.json"
+        errors = _validate_boards_json(json_data, schema_path)
+        if errors:
+            # Log each validation error
+            for e in errors:
+                logger.warning(f"user_boards.json schema violation: {e}")
+            # Try to show a dialog to inform the user when running interactively
+            try:
+                from dialog import Dialog
+
+                d = Dialog(dialog="dialog")
+                # Combine a limited number of errors so the dialog stays readable
+                max_display = 25
+                to_display = errors[:max_display]
+                more = len(errors) - len(to_display)
+                msg = "The user boards file contains schema validation errors:\n\n"
+                msg += "\n".join(to_display)
+                if more > 0:
+                    msg += f"\n\n...and {more} more errors not shown"
+                d.msgbox(msg, width=80, height=20)
+            except Exception:
+                # Non-interactive environment or dialog not available — already logged
+                pass
+
+        # Proceed to overlay — existing behavior will skip invalid entries
+        self._overlay_from_data(json_data)
 
     def _overlay_from_file(self, file: PathLike):
         with open(file, "r") as f:
@@ -92,6 +140,28 @@ def _get_user_boards_path():
         "XDG_CONFIG_HOME", str(Path.home() / ".config")
     )
     return Path(xdg_config_home) / "klipper-ezflash" / "user_boards.json"
+
+
+def _validate_boards_json(data: dict, schema_path: Path) -> list:
+    """Validate a parsed boards JSON dict against the packaged schema.
+
+    Returns a list of human-readable error strings. An empty list means validation passed.
+    """
+    try:
+        with open(schema_path, "r") as sf:
+            schema = json.load(sf)
+    except Exception as e:
+        # If the schema can't be loaded for any reason, fail open: no schema errors.
+        logger.warning(f"Unable to load boards schema from {schema_path}: {e}")
+        return []
+
+    validator = Draft7Validator(schema)
+    errors = []
+    for err in validator.iter_errors(data):
+        # Build a path to the offending location to make messages actionable
+        path = "/".join(str(p) for p in err.absolute_path) or "<root>"
+        errors.append(f"{path}: {err.message}")
+    return sorted(errors)
 
 
 @dataclasses.dataclass
