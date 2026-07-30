@@ -56,7 +56,8 @@ def compile_katapult(katapult_path: Optional[Path] = None) -> Path:
     if not kp:
         raise EZFException("Katapult checkout not found for compilation")
     _run(["make", "-C", str(kp), "clean"])
-    _run(["make", "-C", str(kp)])
+    jobs = os.cpu_count() or 1
+    _run(["make", "-C", str(kp), f"-j{jobs}"])
     out = kp / "out" / "katapult.bin"
     if not out.exists():
         raise EZFException(f"Expected katapult binary not found at {out}")
@@ -67,7 +68,8 @@ def compile_firmware(klipper_path: Optional[Path] = None) -> Path:
     kp = Path(klipper_path) if klipper_path else find_klipper()
     # This implementation assumes an existing build target; the real project may require env setup
     _run(["make", "-C", str(kp), "clean"])
-    _run(["make", "-C", str(kp)])
+    jobs = os.cpu_count() or 1
+    _run(["make", "-C", str(kp), f"-j{jobs}"])
     out_dir = kp / "out"
     possible_outputs = [
         out_dir / "klipper.bin",
