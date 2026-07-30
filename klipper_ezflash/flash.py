@@ -51,25 +51,24 @@ def _run_with_success_check(
     raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
 
 
-def compile_katapult(katapult_path: Optional[Path] = None) -> Path:
+def compile_katapult(katapult_path: Optional[Path] = None, *, kconfig_config: Path) -> Path:
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
         raise EZFException("Katapult checkout not found for compilation")
     _run(["make", "-C", str(kp), "clean"])
     jobs = os.cpu_count() or 1
-    _run(["make", "-C", str(kp), f"-j{jobs}"])
+    _run(["make", "-C", str(kp), f"-j{jobs}", f"KCONFIG_CONFIG={kconfig_config}"])
     out = kp / "out" / "katapult.bin"
     if not out.exists():
         raise EZFException(f"Expected katapult binary not found at {out}")
     return out
 
 
-def compile_firmware(klipper_path: Optional[Path] = None) -> Path:
+def compile_firmware(klipper_path: Optional[Path] = None, *, kconfig_config: Path) -> Path:
     kp = Path(klipper_path) if klipper_path else find_klipper()
-    # This implementation assumes an existing build target; the real project may require env setup
     _run(["make", "-C", str(kp), "clean"])
     jobs = os.cpu_count() or 1
-    _run(["make", "-C", str(kp), f"-j{jobs}"])
+    _run(["make", "-C", str(kp), f"-j{jobs}", f"KCONFIG_CONFIG={kconfig_config}"])
     out_dir = kp / "out"
     possible_outputs = [
         out_dir / "klipper.bin",
