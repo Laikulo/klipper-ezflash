@@ -6,7 +6,7 @@ from typing import Tuple, Optional
 
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
-from ..util import find_katapult, _KATAPULT_CLONE_URL
+from ..util import find_katapult, _KATAPULT_CLONE_URL, find_klipper
 from ..session import load_session, save_session, clear_session, SessionData
 from .. import device as device_mod
 from .. import flash as flash_mod
@@ -43,7 +43,7 @@ class UI(object):
             self._katapult_checked = True
             return
 
-        # Katapult not found — prompt user to clone it or skip
+        # Katapult not found — prompt user to clone it
         self._katapult_checked = True
         code, tag = self._dialog.menu(
             "KATAPULT NOT FOUND\n\n"
@@ -51,7 +51,6 @@ class UI(object):
             f"It can be cloned from:\n  {_KATAPULT_CLONE_URL}",
             choices=[
                 ("clone", "Clone katapult now"),
-                ("skip", "Skip (katapult will not be available)"),
                 ("quit", "Quit"),
             ],
             cancel_label="Quit",
@@ -60,7 +59,6 @@ class UI(object):
         if code == Dialog.OK:
             if tag == "clone":
                 self._clone_katapult()
-            # skip/quit — just continue without katapult
 
     def _clone_katapult(self):
         """Clone the katapult repository to ~/katapult."""
@@ -406,26 +404,41 @@ class UI(object):
 
         while True:
             try:
-                # Only perform a build when starting a fresh session (step_index 0).
-                # If resuming after a timeout or failure, reuse existing build artifacts.
                 if session.step_index <= 0:
                     self._dialog.infobox(
                         "Compiling katapult and firmware. This may take a while.",
                         width=60,
                         height=10,
                     )
-                    flash_mod.compile_katapult()
-                    klipper_bin = flash_mod.compile_firmware()
-                    session.step_index = 1
-                    save_session(session)
-                else:
-                    klipper_bin = flash_mod.locate_firmware()
-                    if klipper_bin is None:
-                        raise EZFException(
-                            "Compiled klipper firmware not found in out/; please start a fresh session to compile."
-                        )
+                    from ..configurator import Configurator
+
+                    # Look up board if missing (resume from session data)
+                    if board is None:
+                        try:
+                            bdb = self._board_db or BoardDatabase()
+                            self._board_db = bdb
+                            board = next(
+                                (b for b in bdb.get_all()
+                                 if b.manufacturer == session.manufacturer
+                                 and b.model == session.model),
+                                None,
+                            )
+                        except Exception:
+                            raise EZFException("Cannot locate board definition to rebuild firmware — start a new flash.")
+
+                    configurator = Configurator(find_klipper(), board)
+                    chosen_iface = next((i for i in board.interfaces if i.if_type == chosen_if_type), None)
+                    if chosen_iface:
+                        configurator.set_interface(chosen_iface)
+
+                    config_path = Path.home() / f".kconfig_{session.manufacturer}_{session.model}"
+                    configurator.save_config(config_path)
+
+                    flash_mod.compile_katapult(kconfig_config=config_path)
+                    klipper_bin = flash_mod.compile_firmware(kconfig_config=config_path)
 
                 if session.step_index <= 1:
+                    #TODO: dispay proper instructions for the user to put the device into bootloader mode based on bootloader type.
                     self._dialog.infobox(
                         "Waiting for bootloader to appear. Please put the device into bootloader mode.",
                         width=60,
