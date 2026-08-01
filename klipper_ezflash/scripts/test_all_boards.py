@@ -11,12 +11,12 @@ _DIE_FAST = False
 def main():
     boards = BoardDefinition.get_all()
 
-    klipper = find_klipper()
+    klipper_path = find_klipper()
     failures = []
     print(f"Checking {len(boards)} boards...")
     for board in boards:
         try:
-            config = Configurator(klipper, board)
+            config = Configurator.klipper(klipper_path, board=board)
 
             for i in config.get_interfaces():
                 try:

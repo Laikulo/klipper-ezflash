@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 from ..model import BoardDatabase
-from ..settings import InterfaceSettings
+from ..settings import InterfaceSettings, _get_settings_path
 from ..util import find_katapult, _KATAPULT_CLONE_URL, find_klipper
 from ..session import load_session, save_session, clear_session, SessionData
 from .. import device as device_mod
@@ -388,13 +388,14 @@ class UI(object):
         If `resume_session` is provided, attempt to continue from the saved step index.
         """
         session = resume_session
+        board = None
+        chosen_if_type = None
 
         if session is None:
             board = self.select_board()
             if not board:
                 return
             # If the board exposes multiple interfaces, ask the user which to use
-            chosen_if_type = None
             ifaces = board.interfaces if hasattr(board, 'interfaces') else []
             if len(ifaces) > 1:
                 choices = [(str(i), if_.pretty()) for i, if_ in enumerate(ifaces)]
@@ -418,6 +419,8 @@ class UI(object):
                 variant=board.variant,
             )
             save_session(session)
+        else:
+            chosen_if_type = session.interface
 
         if session.step_index >= 4:
             self._dialog.infobox(
@@ -433,9 +436,9 @@ class UI(object):
 
         while True:
             try:
-                if session.step_index <= 0:
+                if session.step_index <= 0: # Compile bootloader and firmware for the selected board and interface.
                     self._dialog.infobox(
-                        "Compiling katapult and firmware. This may take a while.",
+                        "Compiling bootloader and firmware. This may take a while.",
                         width=60,
                         height=10,
                     )
@@ -449,24 +452,30 @@ class UI(object):
                             board = next(
                                 (b for b in bdb.get_all()
                                  if b.manufacturer == session.manufacturer
-                                 and b.model == session.model),
+                                 and b.model == session.model
+                                 and b.variant == session.variant),
                                 None,
                             )
                         except Exception:
                             raise EZFException("Cannot locate board definition to rebuild firmware — start a new flash.")
 
-                    configurator = Configurator(find_klipper(), board)
+                    bootloader_config = Configurator.katapult(find_katapult(), board=board)
+                    firmware_config = Configurator.klipper(find_klipper(), board=board)
                     chosen_iface = next((i for i in board.interfaces if i.if_type == chosen_if_type), None)
                     if chosen_iface:
-                        configurator.set_interface(chosen_iface)
+                        bootloader_config.set_interface(chosen_iface)
+                        firmware_config.set_interface(chosen_iface)
 
-                    config_path = Path.home() / f".kconfig_{session.manufacturer}_{session.model}"
-                    configurator.save_config(config_path)
+                    bootloader_config_path = _get_settings_path().parent / "bootloader.config"
+                    firmware_config_path = _get_settings_path().parent / "firmware.config"
 
-                    flash_mod.compile_katapult(kconfig_config=config_path)
-                    klipper_bin = flash_mod.compile_firmware(kconfig_config=config_path)
+                    bootloader_config.write_bootloader_config(board, bootloader_config_path)
+                    bootloader_bin = flash_mod.compile_katapult(kconfig_config=bootloader_config_path)
 
-                if session.step_index <= 1:
+                    firmware_config.write_firmware_config(board, firmware_config_path)
+                    firmware_bin = flash_mod.compile_firmware(kconfig_config=firmware_config_path)
+
+                if session.step_index <= 1: # Verify that the device is connected and in bootloader mode.
                     #TODO: dispay proper instructions for the user to put the device into bootloader mode based on bootloader type.
                     self._dialog.infobox(
                         "Waiting for bootloader to appear. Please put the device into bootloader mode.",
@@ -495,7 +504,7 @@ class UI(object):
                     session.step_index = 2
                     save_session(session)
 
-                if session.step_index <= 2:
+                if session.step_index <= 2: # Actually flash the bootloader using katapult.
                     arch = (session.mcu_arch or "").lower()
                     self._dialog.infobox(
                         "Re-checking bootloader before flashing. Please keep the device connected.",
@@ -511,21 +520,15 @@ class UI(object):
                         height=12,
                     )
                     if "rp2040" in arch or "rp2" in arch:
-                        flash_mod.flash_rp2040_katapult()
+                        flash_mod.flash_rp2040_katapult(bootloader_bin)
                     elif "stm32" in arch:
-                        flash_mod.flash_stm32_katapult()
+                        flash_mod.flash_stm32_katapult(bootloader_bin)
                     else:
-                        try:
-                            flash_mod.flash_rp2040_katapult()
-                        except Exception:
-                            try:
-                                flash_mod.flash_stm32_katapult()
-                            except Exception:
-                                raise EZFException("Unsupported MCU architecture for automatic katapult flash")
+                        raise EZFException("Unsupported MCU architecture for automatic katapult flash")
                     session.step_index = 3
                     save_session(session)
 
-                if session.step_index <= 3:
+                if session.step_index <= 3: # Flash the firmware to the device (via CAN or USB)
                     iface = (session.interface or "").lower() if session.interface else "usb"
                     if "can" in iface:
                         can_list = detect_mod.list_can_interfaces()
@@ -549,14 +552,14 @@ class UI(object):
 
                         uuids = detect_mod.detect_can_uuid(interface=chosen_can)
                         uid = uuids[0]
-                        flash_mod.flash_firmware_via_flashtool(None, klipper_bin, "can", uid, can_iface=chosen_can)
+                        flash_mod.flash_firmware_via_flashtool(None, firmware_bin, "can", uid, can_iface=chosen_can)
                         self._dialog.infobox(f"Flashed firmware to CAN device UUID {uid}", width=80, height=8)
                     else:
                         devs = detect_mod.detect_usb_serial_by_id()
                         if not devs:
                             raise EZFException("No Klipper USB device found after flashing")
                         serial_path = str(devs[0])
-                        flash_mod.flash_firmware_via_flashtool(None, klipper_bin, "serial", serial_path)
+                        flash_mod.flash_firmware_via_flashtool(None, firmware_bin, "serial", serial_path)
                         self._dialog.infobox(f"Flashed firmware to serial device {serial_path}", width=80, height=8)
                     session.step_index = 4
                     save_session(session)
