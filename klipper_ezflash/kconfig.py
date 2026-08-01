@@ -91,7 +91,7 @@ class KConfig(object):
         elif prompt:
             for symbol in self._symbols(allow_invisible):
                 for node in symbol.nodes:
-                    if node.prompt[0] == prompt:
+                    if node.prompt and node.prompt[0] == prompt:
                         return KConfigSymbol(self, symbol)
         else:
             raise ValueError(
