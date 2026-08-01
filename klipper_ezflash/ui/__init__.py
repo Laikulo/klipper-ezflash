@@ -27,19 +27,48 @@ class UI(object):
         self._board_db = None
 
     def _check_katapult(self):
-        """Check if katapult is installed; prompt user to clone it if missing.
+        """Check for katapult and refresh existing local checkouts.
 
         Katapult is required for flashing Klipper bootloaders on supported boards.
         This check only runs once per session to avoid repeated prompts.
         """
         if self._katapult_checked:
             return  # Already checked this session
-        
+
         katapult_path = find_katapult()
         if katapult_path is not None:
             import logging
             logger = logging.getLogger(__name__)
             logger.info(f"Katapult found at {katapult_path}")
+            try:
+                result = subprocess.run(
+                    ["git", "-C", str(katapult_path), "pull"],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode != 0:
+                    error_msg = (result.stderr or f"Pull failed with exit code {result.returncode}").strip()
+                    logger.warning(f"Failed to pull katapult: {error_msg}")
+                    self._dialog.msgbox(
+                        f"Unable to update katapult from git:\n\n{error_msg}",
+                        width=70,
+                        height=15,
+                    )
+            except FileNotFoundError:
+                logger.error("git command not found — cannot update katapult")
+                self._dialog.msgbox(
+                    "git is not installed or not in your PATH.\n\n"
+                    "Please install git and try again.",
+                    width=70,
+                    height=15,
+                )
+            except Exception as e:
+                logger.error(f"Unexpected error updating katapult: {e}")
+                self._dialog.msgbox(
+                    f"An unexpected error occurred while updating katapult:\n\n{e}",
+                    width=70,
+                    height=15,
+                )
             self._katapult_checked = True
             return
 
