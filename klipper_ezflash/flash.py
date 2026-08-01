@@ -17,14 +17,6 @@ def _run(cmd: list, cwd: Optional[Path] = None) -> None:
         raise EZFException(f"Command failed: {' '.join(cmd)}", e)
 
 
-def _run_check_output(cmd: list, cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
-    """Run a command and return the CompletedProcess with captured output."""
-    try:
-        return subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=cwd)
-    except subprocess.CalledProcessError as e:
-        raise EZFException(f"Command failed: {' '.join(cmd)}", e)
-
-
 def _run_with_success_check(
     cmd: list,
     success_patterns: Optional[list[str]] = None,
@@ -83,24 +75,6 @@ def compile_firmware(klipper_path: Optional[Path] = None, *, kconfig_config: Pat
     )
 
 
-def locate_firmware(klipper_path: Optional[Path] = None) -> Optional[Path]:
-    """Locate an existing compiled Klipper firmware without invoking a build.
-
-    Returns the Path to the artifact if present, otherwise None.
-    """
-    kp = Path(klipper_path) if klipper_path else find_klipper()
-    out_dir = kp / "out"
-    possible_outputs = [
-        out_dir / "klipper.bin",
-        out_dir / "klipper.elf",
-        out_dir / "klipper.elf.hex",
-    ]
-    for output in possible_outputs:
-        if output.exists():
-            return output
-    return None
-
-
 def flash_rp2040_katapult(katapult_path: Optional[Path] = None, flash_device: str = "2e8a:0003") -> None:
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
@@ -127,7 +101,8 @@ def flash_stm32_katapult(katapult_path: Optional[Path] = None, device_vidpid: st
 def flash_firmware_via_flashtool(katapult_path: Optional[Path], klipper_bin: Path, interface: str, identifier: str, can_iface: Optional[str] = None) -> None:
     """Flash klipper firmware using katapult's flashtool.py.
 
-    `interface` is either a serial path or 'can0'. `identifier` is a UUID or serial argument as required.
+    `interface` is either a serial path or a host CAN interface name.
+    `identifier` is a UUID or serial argument as required.
     """
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
