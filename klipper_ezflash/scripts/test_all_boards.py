@@ -13,7 +13,7 @@ def main():
 
     klipper_path = find_klipper()
     failures = []
-    print(f"Checking {len(boards)} boards...")
+    print(f"Checking {len(boards)} boards klipper configuration...")
     for board in boards:
         try:
             config = Configurator.klipper(klipper_path, board=board)
@@ -28,7 +28,24 @@ def main():
         except Exception as e:
             if _DIE_FAST:
                 raise e
-            failures.append(f"{board}: {e!r}")
+            failures.append(f"{board} klipper: {e!r}")
+
+    print(f"Checking {len(boards)} boards Katapult bootloader configuration...")
+    for board in boards:
+        try:
+            config = Configurator.katapult(klipper_path, board=board)
+
+            for i in config.get_interfaces():
+                try:
+                    config.set_interface(i)
+                except Exception as e:
+                    if _DIE_FAST:
+                        raise e
+                    failures.append(f"{board}/katapult/{i}: {e!r}")
+        except Exception as e:
+            if _DIE_FAST:
+                raise e
+            failures.append(f"{board} katapult: {e!r}")
 
     if failures:
         print("==== FAIL ====")
