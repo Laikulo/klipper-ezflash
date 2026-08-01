@@ -418,7 +418,7 @@ class BoardUARTDefinition(object):
 class BoardMCUDefinition(object):
     arch: str
     mcu: str
-    clock: Optional[str] = (None,)
+    clock: Optional[str] = None
     flash: Optional[str] = None
 
     @classmethod
