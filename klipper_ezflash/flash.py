@@ -98,7 +98,7 @@ def flash_stm32_katapult(katapult_path: Optional[Path] = None, device_vidpid: st
     )
 
 
-def flash_firmware_via_flashtool(katapult_path: Optional[Path], klipper_bin: Path, interface: str, identifier: str, can_iface: Optional[str] = None) -> None:
+def flash_firmware_via_flashtool(katapult_path: Optional[Path], firmware_bin: Path, interface: str, identifier: str, can_iface: Optional[str] = None) -> None:
     """Flash klipper firmware using katapult's flashtool.py.
 
     `interface` is either a serial path or a host CAN interface name.
@@ -115,7 +115,7 @@ def flash_firmware_via_flashtool(katapult_path: Optional[Path], klipper_bin: Pat
         # For CAN: supply the CAN network interface with -i (e.g. can0)
         # and the device UUID with -u.
         chosen = can_iface or os.environ.get("KBOARD_CAN_INTERFACE") or "can0"
-        _run([str(py), str(flashtool), "-i", chosen, "-u", identifier, "-f", str(klipper_bin)])
+        _run([str(py), str(flashtool), "-i", chosen, "-u", identifier, "-f", str(firmware_bin)])
     else:
         # For USB/serial: pass the serial device path with -d
-        _run([str(py), str(flashtool), "-d", identifier, "-f", str(klipper_bin)])
+        _run([str(py), str(flashtool), "-d", identifier, "-f", str(firmware_bin)])
