@@ -20,15 +20,28 @@ _PROMPT_MUNGES = (("Communication interface", "Communications interface"),)
 
 
 class Configurator(object):
-    def __init__(self, klipper_path: PathLike, board: BoardDefinition):
-        self.klipper_path = klipper_path
-        self.kconfig = KConfig(klipper_path)
+    def __init__(self, source_path: PathLike, board: BoardDefinition):
+        self.source_path = source_path
+        self.kconfig = KConfig(source_path)
         self._board = board
         # We always set the below, because tons of stuff is missing otherwise
-        self.kconfig.symbol(prompt="Enable extra low-level configuration options").set(
-            True
-        )
+        if extra_config := self.kconfig.symbol(
+            prompt="Enable extra low-level configuration options"
+        ):
+            extra_config.set(True)
         self._load_from_board(board)
+
+    @classmethod
+    def katapult(cls, source_path: PathLike, board: BoardDefinition) -> "Configurator":
+        configurator = cls(source_path, board)
+        configurator._configure_bootloader(board)
+        return configurator
+
+    @classmethod
+    def klipper(cls, source_path: PathLike, board: BoardDefinition) -> "Configurator":
+        configurator = cls(source_path, board)
+        configurator._configure_firmware(board)
+        return configurator
 
     def _load_from_board(self, board):
         self.set_arch(board.mcu.arch)
@@ -41,7 +54,7 @@ class Configurator(object):
             self.set_flash(flash)
 
     def set_arch(self, arch):
-        # Despite what the below says, we have to deal with differeing titles for some arches
+        # Despite what the below says, we have to deal with differing titles for some arches
         arch = table_munge(arch, _ARCH_MUNGES)
         # Arch is pretty easy to deal with, since it is always the same prompt, but the choice is unnamed
         self.kconfig.choice(prompt="Micro-controller Architecture").select(prompt=arch)
@@ -114,8 +127,33 @@ class Configurator(object):
     def get_interfaces(self):
         return self._board.interfaces
 
+    def _configure_bootloader(self, board):
+        status_led = getattr(board, "status_led", None) or getattr(board, "status", None)
+        if isinstance(status_led, str):
+            status_led = status_led.strip()
+        else:
+            status_led = ""
+        led_value = status_led or ""
+        self._set_string_symbol(("STATUS_LED_PIN", "CONFIG_STATUS_LED_PIN"), led_value)
+
+    def _configure_firmware(self, board):
+        startup_pins = getattr(board, "startup_pins", None)
+        if startup_pins is None:
+            startup_pins = ""
+        elif not isinstance(startup_pins, str):
+            startup_pins = str(startup_pins)
+        self._set_string_symbol(("INITIAL_PINS", "CONFIG_INITIAL_PINS"), startup_pins)
+
+    def _set_string_symbol(self, names, value):
+        for name in names:
+            if symbol := self.kconfig.symbol(name=name, allow_invisible=True):
+                symbol.set(value)
+                return True
+        logger.debug("No matching kconfig symbol found for %s", names)
+        return False
+
     # TODO: get_interface - return the currently active interface
-    # TODO: on init, determin which interface is active (from defaults) and set as active here.
+    # TODO: on init, determine which interface is active (from defaults) and set as active here.
 
     def _get_comms_choice(self):
         return self.kconfig.choice(
@@ -210,7 +248,18 @@ class Configurator(object):
             "#\n"
         )
 
-    def save_config(self, config_path: PathLike):
+    def write_bootloader_config(self, board, config_path: PathLike):
+        self._configure_bootloader(board)
+        return self.save_config(config_path)
+
+    def write_firmware_config(self, board, config_path: PathLike):
+        self._configure_firmware(board)
+        return self.save_config(config_path)
+
+    def save_config(self, config_path: PathLike) -> Path:
+        config_path = Path(config_path).expanduser()
+        config_path.parent.mkdir(parents=True, exist_ok=True)
         self.kconfig.kcl.write_config(
-            str(Path(config_path).absolute()), header=self._header(), save_old=False
+            str(config_path), header=self._header(), save_old=False
         )
+        return config_path
