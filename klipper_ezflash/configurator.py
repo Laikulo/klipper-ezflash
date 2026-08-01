@@ -133,8 +133,10 @@ class Configurator(object):
             status_led = status_led.strip()
         else:
             status_led = ""
-        led_value = status_led or ""
-        self._set_string_symbol(("STATUS_LED_PIN", "CONFIG_STATUS_LED_PIN"), led_value)
+        # Only set the symbol if there's an actual value to preserve Kconfig defaults
+        if status_led:
+            self._set_string_symbol(("ENABLE_LED"), True)
+            self._set_string_symbol(("STATUS_LED_PIN", "CONFIG_STATUS_LED_PIN"), status_led)
 
     def _configure_firmware(self, board):
         startup_pins = getattr(board, "startup_pins", None)
