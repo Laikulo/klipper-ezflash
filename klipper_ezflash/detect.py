@@ -63,7 +63,7 @@ def detect_klipper_serial_path(timeout: float = 5.0, poll_interval: float = 0.5)
     )
 
 
-def detect_usb_serial_by_id(filter_keyword: str = "klipper_") -> List[Path]:
+def detect_usb_serial_by_id(filter_keyword: str = "katapult_") -> List[Path]:
     """Scan /dev/serial/by-id for entries containing `filter_keyword`.
 
     Returns a list of Paths to matching device nodes.
@@ -74,11 +74,7 @@ def detect_usb_serial_by_id(filter_keyword: str = "klipper_") -> List[Path]:
     out = []
     for p in base.iterdir():
         if filter_keyword in p.name:
-            try:
-                resolved = (p.resolve() if p.is_symlink() else p)
-            except OSError:
-                resolved = p
-            out.append(resolved)
+            out.append(p)
     return out
 
 
