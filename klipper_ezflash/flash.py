@@ -91,7 +91,7 @@ def flash_rp2040_katapult(bootloader_bin: Path, katapult_path: Optional[Path] = 
         raise EZFException("Katapult checkout not found for flashing")
     if not bootloader_bin.exists():
         raise EZFException(f"Katapult binary not found at {bootloader_bin}")
-    _run(["make", "--output-sync=target", "flash", f"FLASH_DEVICE={flash_device}"], cwd=kp)
+    _run(["make", "--output-sync=target", "flash", f"FLASH_DEVICE={flash_device}", "NOSUDO=1"], cwd=kp)
 
 
 def flash_stm32_katapult( bootloader_bin: Path, katapult_path: Optional[Path] = None, device_vidpid: str = "0483:df11") -> None:
