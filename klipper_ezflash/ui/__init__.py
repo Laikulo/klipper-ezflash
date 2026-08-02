@@ -469,10 +469,10 @@ class UI(object):
                     bootloader_config_path = _get_settings_path().parent / "bootloader.config"
                     firmware_config_path = _get_settings_path().parent / "firmware.config"
 
-                    bootloader_config.write_bootloader_config(board, bootloader_config_path)
+                    bootloader_config.save_config(bootloader_config_path)
                     bootloader_bin = flash_mod.compile_katapult(kconfig_config=bootloader_config_path)
 
-                    firmware_config.write_firmware_config(board, firmware_config_path)
+                    firmware_config.save_config(firmware_config_path)
                     firmware_bin = flash_mod.compile_firmware(kconfig_config=firmware_config_path)
 
                 if session.step_index <= 1: # Verify that the device is connected and in bootloader mode.
