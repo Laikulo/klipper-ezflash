@@ -5,7 +5,7 @@ import os
 from functools import cached_property, cache
 from os import PathLike
 from pathlib import Path
-from typing import Union, Optional, Dict, TextIO
+from typing import Union, Optional, Dict, TextIO, List
 
 from .util import get_boards
 try:
@@ -246,13 +246,13 @@ class BoardDefinition(object):
     variant: str
     mcu: "BoardMCUDefinition"
     can: Union["BoardCANDefinition", str, None] = None
-    supports_canbridge: Boolean = False
+    supports_canbridge: bool = False
     usb: Optional[str] = None
     uart: Optional["BoardUARTDefinition"] = None
     status: Optional[str] = None
     startup_pins: Optional[str] = None
     klipper_options: Optional[Dict[str, str]] = None
-    optional_features: Optional[list[str]] = None
+    optional_features: Optional[List[str]] = None
 
     def __str__(self):
         return f"{self.manufacturer}/{self.model}/{self.variant}"
