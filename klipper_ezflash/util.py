@@ -20,6 +20,12 @@ def find_katapult():
     Returns a Path to the katapult directory if found, or None if not present.
     Katapult is used for flashing Klipper bootloaders and is required for certain board operations.
     """
+    if override_path := os.environ.get("KBOARD_KATAPULT_PATH"):
+        path = Path(override_path)
+        if path.exists():
+            return path
+        else:
+            raise ValueError("Specified KBOARD_KATAPULT_PATH does not exist")
     for location in _COMMON_KATAPULT_LOCATIONS:
         path = Path(location).expanduser()
         # Check if it's a valid katapult checkout (has the repo's .git directory)
