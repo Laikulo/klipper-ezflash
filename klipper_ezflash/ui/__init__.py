@@ -575,7 +575,6 @@ class UI(object):
                     else:
                         raise EZFException("Unsupported MCU architecture for automatic katapult flash")
 
-                    sleep(1)  # Give the device a moment to reset after flashing
                     session.step_index = 3
                     save_session(session)
 
@@ -608,23 +607,31 @@ class UI(object):
                             flash_mod.flash_firmware_via_flashtool,
                             None, firmware_bin, "can", uid, can_iface=chosen_can,
                         )
-                        self._dialog.msgbox(f"Flashed firmware to CAN device!\nUUID: {uid}", width=80, height=8)
-                    else:
-                        devs = detect_mod.detect_usb_serial_by_id("katapult_")
-                        if not devs:
+                        self._dialog.msgbox(f"Flashed firmware to CAN device!\nUUID: {uid}", width=80, height=10)
+                    else: #USB mode
+                        self._dialog.infobox(f"Waiting for the device to reboot into Katapult....", width=80, height=10)
+                        katapult_dev = detect_mod.wait_for_katapult_device(timeout=10.0)
+                        if not katapult_dev:
                             raise EZFException("No Katapult serial device found after flashing!\n\nPlease ensure the reset jumpers are removed and that the status LED is flashing if available.")
-                        serial_path = str(devs[0])
+                        katapult_serial_path = str(katapult_dev)
+
+                        # Snapshot existing Klipper_ devices right before the
+                        # flash so we can tell which one is newly-appeared
+                        # afterwards, regardless of what serial the firmware
+                        # assigns it.
+                        known_klipper_devs = detect_mod.detect_usb_serial(lambda p: "Klipper_" in p.name)
+
                         self._run_with_progressbox(
-                            "Flashing firmware (serial)...",
+                            "Flashing firmware via Katapult...",
                             flash_mod.flash_firmware_via_flashtool,
-                            None, firmware_bin, "serial", serial_path,
+                            None, firmware_bin, "serial", katapult_serial_path,
                         )
-                        sleep(1)  # Give the device a moment to reset after flashing
-                        devs_klipper = detect_mod.detect_usb_serial_by_id("Klipper_")
-                        if not devs_klipper:
+
+                        klipper_dev = detect_mod.wait_for_klipper_device(known=known_klipper_devs, timeout=10.0)
+                        if not klipper_dev:
                             raise EZFException("No Klipper device detected after flashing.\n\nPlease check the connection.")
-                        klipper_path = str(devs_klipper[0])
-                        self._dialog.msgbox(f"Flashed firmware to USB device!\n\nKatapult path: {serial_path}\nKlipper path: {klipper_path}", width=80, height=12)
+                        klipper_path = str(klipper_dev)
+                        self._dialog.msgbox(f"Flashed firmware to serial device!\n\nKatapult path: {katapult_serial_path}\nKlipper path: {klipper_path}", width=80, height=12)
                     session.step_index = 4
                     save_session(session)
 

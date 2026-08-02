@@ -61,7 +61,7 @@ def compile_katapult(katapult_path: Optional[Path] = None) -> Path:
     if not kp:
         raise EZFException("Katapult checkout not found for compilation")
     _run(["make", "clean"], cwd=kp)
-    _run(["make", "-j"], cwd=kp)
+    _run(["make", "-j", "--output-sync=target"], cwd=kp)
     out = kp / "out" / "katapult.bin"
     if not out.exists():
         raise EZFException(f"Expected katapult binary not found at {out}")
@@ -71,7 +71,7 @@ def compile_katapult(katapult_path: Optional[Path] = None) -> Path:
 def compile_firmware(klipper_path: Optional[Path] = None) -> Path:
     kp = Path(klipper_path) if klipper_path else find_klipper()
     _run(["make", "clean"], cwd=kp)
-    _run(["make", "-j"], cwd=kp)
+    _run(["make", "-j", "--output-sync=target"], cwd=kp)
     out_dir = kp / "out"
     possible_outputs = [
         out_dir / "klipper.bin",
@@ -85,12 +85,13 @@ def compile_firmware(klipper_path: Optional[Path] = None) -> Path:
         f"Expected klipper firmware at one of {', '.join(str(p) for p in possible_outputs)}"
     )
 
-
-def flash_rp2040_katapult(katapult_path: Optional[Path] = None, flash_device: str = "2e8a:0003") -> None:
+def flash_rp2040_katapult(bootloader_bin: Path, katapult_path: Optional[Path] = None, flash_device: str = "2e8a:0003") -> None:
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
         raise EZFException("Katapult checkout not found for flashing")
-    _run(["make", "-C", str(kp), "flash", f"FLASH_DEVICE={flash_device}"])
+    if not bootloader_bin.exists():
+        raise EZFException(f"Katapult binary not found at {bootloader_bin}")
+    _run(["make", "--output-sync=target", "flash", f"FLASH_DEVICE={flash_device}"], cwd=kp)
 
 
 def flash_stm32_katapult( bootloader_bin: Path, katapult_path: Optional[Path] = None, device_vidpid: str = "0483:df11") -> None:

@@ -223,13 +223,16 @@ main() {
 }
 
 install_udev_rules() {
-  # Create a udev rule to allow access to ST DFU devices (0483:df11).
+  # Create udev rules to allow access to ST DFU devices (0483:df11) and
+  # RP2040 boards in BOOTSEL/UF2 mode (2e8a:0003).
   # Use MODE=0660 and GROUP=plugdev by default.
-  local rulefile="/etc/udev/rules.d/99-st-dfu.rules"
+  local rulefile="/etc/udev/rules.d/99-klipper-ezflash.rules"
   log "Installing udev rule $rulefile"
   become sh -c "cat > $rulefile <<'UDEVEOF'
 # STMicroelectronics DFU (0483:df11)
 ATTRS{idVendor}==\"0483\", ATTRS{idProduct}==\"df11\", MODE=\"0660\", GROUP=\"plugdev\"
+# Raspberry Pi RP2 Boot / RP2040 BOOTSEL mode (2e8a:0003)
+ATTRS{idVendor}==\"2e8a\", ATTRS{idProduct}==\"0003\", MODE=\"0660\", GROUP=\"plugdev\"
 UDEVEOF"
   # Reload udev rules and trigger
   become udevadm control --reload-rules
