@@ -234,7 +234,13 @@ class Configurator(object):
         :param baud:
         :return:
         """
-        raise NotImplementedError("Setting baud is not supported")
+        iface = self._active_interface
+        if iface.if_type == "UART":
+            self.kconfig.symbol(prompt="Baud rate for serial port").set(baud)
+        elif iface.if_type == "CAN":
+            self.kconfig.symbol(prompt="CAN bus speed")
+        else:
+            raise ValueError("Attempted to set baud on a non can or uart interface")
 
     def _header(self):
         return (
