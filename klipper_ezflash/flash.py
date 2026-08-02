@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -24,32 +24,43 @@ def _run_with_success_check(
 ) -> subprocess.CompletedProcess:
     """Run a command that may return non-zero exit code but still succeed.
 
-    If `success_patterns` is provided and any pattern appears in stdout on success,
-    the call does NOT raise even if the process exited with a non-zero status.
+    Streams stdout/stderr live (merged) as the command runs, while also
+    buffering it so it can be checked against `success_patterns` even if
+    the process exits non-zero.
     """
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
 
-    # Normal case: exit code 0 — always succeed
-    if result.returncode == 0:
-        return result
+    output_lines = []
+    for line in proc.stdout:
+        output_lines.append(line)
+        sys.stdout.write(line)
+        sys.stdout.flush()
+    proc.wait()
+    output = "".join(output_lines)
 
-    # Check for success patterns in stdout even on failure
+    if proc.returncode == 0:
+        return subprocess.CompletedProcess(cmd, proc.returncode, output, "")
+
     if success_patterns:
         for pattern in success_patterns:
-            if pattern in result.stdout:
-                return result
+            if pattern in output:
+                return subprocess.CompletedProcess(cmd, proc.returncode, output, "")
 
-    # No success pattern matched — raise the original error
-    raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+    raise subprocess.CalledProcessError(proc.returncode, cmd, output, "")
 
 
-def compile_katapult(katapult_path: Optional[Path] = None, *, kconfig_config: Path) -> Path:
+def compile_katapult(katapult_path: Optional[Path] = None) -> Path:
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
         raise EZFException("Katapult checkout not found for compilation")
     _run(["make", "clean"], cwd=kp)
-    # Copy the kconfig config as .config in the katapult directory
-    shutil.copy2(str(kconfig_config), str(kp / ".config"))
     _run(["make", "-j"], cwd=kp)
     out = kp / "out" / "katapult.bin"
     if not out.exists():
@@ -57,13 +68,11 @@ def compile_katapult(katapult_path: Optional[Path] = None, *, kconfig_config: Pa
     return out
 
 
-def compile_firmware(klipper_path: Optional[Path] = None, *, kconfig_config: Path) -> Path:
+def compile_firmware(klipper_path: Optional[Path] = None) -> Path:
     kp = Path(klipper_path) if klipper_path else find_klipper()
     _run(["make", "clean"], cwd=kp)
-    # Copy the kconfig config as .config in the klipper directory
-    shutil.copy2(str(kconfig_config), str(kp / ".config"))
     _run(["make", "-j"], cwd=kp)
-    out_dir = firmware_path / "out"
+    out_dir = kp / "out"
     possible_outputs = [
         out_dir / "klipper.bin",
         out_dir / "klipper.elf",
@@ -84,18 +93,17 @@ def flash_rp2040_katapult(katapult_path: Optional[Path] = None, flash_device: st
     _run(["make", "-C", str(kp), "flash", f"FLASH_DEVICE={flash_device}"])
 
 
-def flash_stm32_katapult(katapult_path: Optional[Path] = None, device_vidpid: str = "0483:df11") -> None:
+def flash_stm32_katapult( bootloader_bin: Path, katapult_path: Optional[Path] = None, device_vidpid: str = "0483:df11") -> None:
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
         raise EZFException("Katapult checkout not found for flashing")
     dfu = find_tool("dfu-util")
     if not dfu:
         raise EZFException("dfu-util not found; required to flash STM32 bootloader")
-    binpath = kp / "out" / "katapult.bin"
-    if not binpath.exists():
-        raise EZFException(f"Katapult binary not found at {binpath}")
+    if not bootloader_bin.exists():
+        raise EZFException(f"Katapult binary not found at {bootloader_bin}")
     _run_with_success_check(
-        [str(dfu), "-a", "0", "-s", "0x08000000:mass-erase:force:leave", "-D", str(binpath), "-d", device_vidpid],
+        [str(dfu), "-a", "0", "-s", "0x08000000:mass-erase:force:leave", "-D", str(bootloader_bin), "-d", device_vidpid],
         success_patterns=["File downloaded successfully"],
     )
 
