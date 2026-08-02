@@ -3,7 +3,7 @@ requires = ['setuptools', 'setuptools-scm']
 build-backend = "setuptools.build_meta"
 
 [project]
-name = 'kboard'
+name = 'klipper-ezflash'
 authors = [
     {name = "Laikulo", email = "aaron@haun.guru"},
     {name = "TheRougeZeta", email = "idk@idk.invalid"}
