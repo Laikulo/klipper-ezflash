@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -46,9 +47,10 @@ def compile_katapult(katapult_path: Optional[Path] = None, *, kconfig_config: Pa
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
         raise EZFException("Katapult checkout not found for compilation")
-    _run(["make", "-C", str(kp), "clean"])
-    jobs = os.cpu_count() or 1
-    _run(["make", "-C", str(kp), f"-j{jobs}", f"KCONFIG_CONFIG={kconfig_config}"])
+    _run(["make", "clean"], cwd=kp)
+    # Copy the kconfig config as .config in the katapult directory
+    shutil.copy2(str(kconfig_config), str(kp / ".config"))
+    _run(["make", "-j"], cwd=kp)
     out = kp / "out" / "katapult.bin"
     if not out.exists():
         raise EZFException(f"Expected katapult binary not found at {out}")
@@ -57,10 +59,11 @@ def compile_katapult(katapult_path: Optional[Path] = None, *, kconfig_config: Pa
 
 def compile_firmware(klipper_path: Optional[Path] = None, *, kconfig_config: Path) -> Path:
     kp = Path(klipper_path) if klipper_path else find_klipper()
-    _run(["make", "-C", str(kp), "clean"])
-    jobs = os.cpu_count() or 1
-    _run(["make", "-C", str(kp), f"-j{jobs}", f"KCONFIG_CONFIG={kconfig_config}"])
-    out_dir = kp / "out"
+    _run(["make", "clean"], cwd=kp)
+    # Copy the kconfig config as .config in the klipper directory
+    shutil.copy2(str(kconfig_config), str(kp / ".config"))
+    _run(["make", "-j"], cwd=kp)
+    out_dir = firmware_path / "out"
     possible_outputs = [
         out_dir / "klipper.bin",
         out_dir / "klipper.elf",
