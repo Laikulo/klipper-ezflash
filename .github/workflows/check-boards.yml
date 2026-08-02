@@ -31,6 +31,12 @@ jobs:
           repository: klipper3d/klipper
           filter: 'blob:none'
           path: klipper
+      - name: katapult checkout
+        uses: actions/checkout@v6
+        with:
+          repository: arksine/katapult
+          filter: 'blob:none'
+          path: katapult
       - name: Check board dataC(embedded)
         run: |
-          KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" check_kboards
+          KBOARD_KLIPPER_PATH="$GITHUB_WORKSPACE/klipper" KBOARD_KATAPULT_PATH="$GITHUB_WORKSPACE/katapult" check_kboards
