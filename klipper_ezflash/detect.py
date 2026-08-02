@@ -5,78 +5,147 @@ import re
 import subprocess
 import sys
 import time
+import threading
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 from .fault import EZFException
 from .util import find_tool, find_katapult
 
-
-def _wait_for_serial_device(
-    filter_keyword: str,
-    timeout: float = 5.0,
-    poll_interval: float = 0.5,
-    initial_delay: float = 0.0,
-) -> Optional[Path]:
-    """Poll for a USB serial device matching *filter_keyword*.
-
-    Returns the resolved device path or ``None`` on timeout.
-    """
-    if initial_delay:
-        time.sleep(initial_delay)
-
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        devs = detect_usb_serial_by_id(filter_keyword=filter_keyword)
-        if devs:
-            return devs[0]
-        time.sleep(poll_interval)
-    return None
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 
-def wait_for_katapult_device(timeout: float = 5.0, poll_interval: float = 0.5) -> bool:
-    """Wait for the board to re-enumerate into katapult mode after flashing."""
-    result = _wait_for_serial_device(
-        "katapult_", timeout=timeout, poll_interval=poll_interval, initial_delay=1.0,
-    )
-    return result is not None
-
-
-def wait_for_klipper_device(timeout: float = 5.0, poll_interval: float = 0.5) -> Optional[Path]:
-    """Wait for and return the path to a Klipper USB serial device after flashing."""
-    return _wait_for_serial_device(
-        "klipper_", timeout=timeout, poll_interval=poll_interval, initial_delay=1.0,
-    )
-
-
-def detect_katapult_serial_path(timeout: float = 5.0, poll_interval: float = 0.5) -> Optional[Path]:
-    """Return the path to a Katapult USB serial device (no initial delay)."""
-    return _wait_for_serial_device(
-        "katapult_", timeout=timeout, poll_interval=poll_interval, initial_delay=0.0,
-    )
-
-
-def detect_klipper_serial_path(timeout: float = 5.0, poll_interval: float = 0.5) -> Optional[Path]:
-    """Return the path to a Klipper USB serial device (no initial delay)."""
-    return _wait_for_serial_device(
-        "klipper_", timeout=timeout, poll_interval=poll_interval, initial_delay=0.0,
-    )
-
-
-def detect_usb_serial_by_id(filter_keyword: str = "katapult_") -> List[Path]:
-    """Scan /dev/serial/by-id for entries containing `filter_keyword`.
-
-    Returns a list of Paths to matching device nodes.
-    """
+def detect_usb_serial(predicate: Callable[[Path], bool]) -> List[Path]:
+    """Scan /dev/serial/by-id for entries matching `predicate`."""
     base = Path("/dev/serial/by-id")
     if not base.exists():
         return []
-    out = []
-    for p in base.iterdir():
-        if filter_keyword in p.name:
-            out.append(p)
-    return out
+    return [p for p in base.iterdir() if predicate(p)]
 
+
+def extract_serial(device_path: Path) -> Optional[str]:
+    """Extract the unique device serial from a /dev/serial/by-id entry.
+
+    e.g. usb-katapult_rp2040_E6611CB697123A29-if00 -> "E6611CB697123A29"
+    Works the same for Klipper_ entries, since the serial sits in the same
+    position regardless of the katapult_/Klipper_ prefix or chip name.
+
+    Not used to *match* devices across the katapult -> klipper transition
+    (a board's klipper config may set a custom USB serial number that
+    differs from what katapult reports) — kept around for display/logging
+    purposes, e.g. showing the user which board's serial was detected.
+    """
+    match = re.search(r"_([0-9A-Fa-f]+)-if\d+$", device_path.name)
+    return match.group(1) if match else None
+
+
+class _DeviceWaiter(FileSystemEventHandler):
+    def __init__(self, predicate: Callable[[Path], bool]):
+        self.predicate = predicate
+        self.found = threading.Event()
+        self.result: Optional[Path] = None
+
+    def _check(self, path: str):
+        p = Path(path)
+        if self.predicate(p):
+            self.result = p
+            self.found.set()
+
+    def on_created(self, event):
+        self._check(event.src_path)
+
+    def on_moved(self, event):
+        self._check(event.dest_path)
+
+
+def wait_for_serial_device(predicate: Callable[[Path], bool], timeout: float = 5.0) -> Optional[Path]:
+    """Block until a /dev/serial/by-id entry matching `predicate` appears
+    (or already exists), or until `timeout` elapses. Returns the matching
+    Path, or None on timeout.
+
+    Uses inotify (via watchdog) to react the instant udev creates the entry,
+    rather than a settle-delay followed by fixed-interval polling.
+    """
+    base = Path("/dev/serial/by-id")
+
+    existing = detect_usb_serial(predicate)
+    if existing:
+        return existing[0]
+
+    deadline = time.monotonic() + timeout
+
+    if not base.exists():
+        # inotify can't watch a path that doesn't exist yet. This is the one
+        # spot that still polls, but only for the directory's own creation,
+        # bounded by the caller's timeout.
+        while time.monotonic() < deadline and not base.exists():
+            time.sleep(0.05)
+        if not base.exists():
+            return None
+
+    handler = _DeviceWaiter(predicate)
+    observer = Observer()
+    observer.schedule(handler, str(base), recursive=False)
+    observer.start()
+    try:
+        # Catch anything that appeared in the gap between the first check
+        # above and the watch actually being registered.
+        existing = detect_usb_serial(predicate)
+        if existing:
+            return existing[0]
+        remaining = deadline - time.monotonic()
+        if remaining > 0:
+            handler.found.wait(remaining)
+    finally:
+        observer.stop()
+        observer.join()
+
+    return handler.result
+
+
+def wait_for_new_serial_device(
+    predicate: Callable[[Path], bool],
+    known: Iterable[Path],
+    timeout: float = 5.0,
+) -> Optional[Path]:
+    """Wait for a device matching `predicate` that is NOT already present
+    in `known` (a snapshot taken before the flash was triggered).
+
+    Use this instead of matching by serial number whenever the firmware may
+    assign the device a different USB serial than the bootloader did (e.g.
+    a board with a custom CONFIG_USB_SERIAL_NUMBER set in its klipper
+    config) — only cares that the device is newly-appeared, not what its
+    identity turns out to be.
+    """
+    known_set = set(known)
+    return wait_for_serial_device(
+        lambda p: predicate(p) and p not in known_set,
+        timeout=timeout,
+    )
+
+
+def wait_for_katapult_device(timeout: float = 5.0) -> Optional[Path]:
+    """Wait for the board to re-enumerate into katapult mode after flashing."""
+    return wait_for_serial_device(lambda p: "katapult_" in p.name, timeout=timeout)
+
+
+def wait_for_klipper_device(
+    known: Optional[Iterable[Path]] = None,
+    timeout: float = 5.0,
+) -> Optional[Path]:
+    """Wait for a Klipper USB serial device.
+
+    If `known` is given (a snapshot of Klipper_ devices taken before the
+    flash), waits for a device that wasn't in that snapshot — safe even if
+    the firmware assigns a different serial than the bootloader had. If
+    omitted, matches any Klipper_ device (only safe when at most one
+    Klipper device could plausibly be connected at a time).
+    """
+    predicate = lambda p: "Klipper_" in p.name
+    if known is not None:
+        return wait_for_new_serial_device(predicate, known, timeout=timeout)
+    return wait_for_serial_device(predicate, timeout=timeout)
 
 def _run_cmd(cmd: List[str], timeout: int = 10) -> str:
     try:
