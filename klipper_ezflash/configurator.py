@@ -64,11 +64,13 @@ class Configurator(object):
         if proc_choice := self.kconfig.choice(prompt="Processor model"):
             for possible_mcu in proc_choice.choices():
                 mcu_prompt = possible_mcu.nodes[0].prompt[0].split(" ")[0]
-                if mcu_prompt == mcu:
+                if mcu_prompt.upper() == mcu.upper():
                     logger.debug(
                         f"Selected {possible_mcu!r} for MCU specification {mcu}"
                     )
                     possible_mcu.set_value(2)
+                    return
+            raise RuntimeError(f"Unable to find matching MCU {mcu}")
         else:
             # This arch doesn't support setting the MCU
             if not mcu:
@@ -82,6 +84,7 @@ class Configurator(object):
             raise RuntimeError(
                 f"Could not set MCU type to {mcu}. Is it supported by this version of klipper?"
             )
+
 
     def set_freq(self, freq):
         freq_choice: Optional[KConfigChoice] = None
