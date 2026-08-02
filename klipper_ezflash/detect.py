@@ -40,68 +40,76 @@ def extract_serial(device_path: Path) -> Optional[str]:
     return match.group(1) if match else None
 
 
-class _DeviceWaiter(FileSystemEventHandler):
-    def __init__(self, predicate: Callable[[Path], bool]):
-        self.predicate = predicate
-        self.found = threading.Event()
-        self.result: Optional[Path] = None
-
-    def _check(self, path: str):
-        p = Path(path)
-        if self.predicate(p):
-            self.result = p
-            self.found.set()
+class _DirectoryChangeWaiter(FileSystemEventHandler):
+    """Wakes on any create/delete/move event in the watched directory.
+    Used purely as a signal to re-poll — the actual answer always comes
+    from re-checking the directory directly, never from this handler's
+    own state, so a missed inotify event costs one extra wait cycle
+    instead of a false "not found" result.
+    """
+    def __init__(self):
+        self.changed = threading.Event()
 
     def on_created(self, event):
-        self._check(event.src_path)
+        self.changed.set()
+
+    def on_deleted(self, event):
+        self.changed.set()
 
     def on_moved(self, event):
-        self._check(event.dest_path)
+        self.changed.set()
+
+
+def _wait_until(condition_fn: Callable[[], bool], timeout: float) -> bool:
+    """Block until `condition_fn()` returns True, or `timeout` elapses.
+    Re-checks immediately, then again on every /dev/serial/by-id change
+    (via inotify) or timeout, always by calling `condition_fn()` directly
+    rather than trusting the watcher's own bookkeeping.
+    """
+    base = Path("/dev/serial/by-id")
+    if condition_fn():
+        return True
+
+    deadline = time.monotonic() + timeout
+
+    if not base.exists():
+        while time.monotonic() < deadline and not base.exists():
+            time.sleep(0.05)
+        if not base.exists():
+            return False
+
+    handler = _DirectoryChangeWaiter()
+    observer = Observer()
+    observer.schedule(handler, str(base), recursive=False)
+    observer.start()
+    try:
+        while True:
+            if condition_fn():
+                return True
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return condition_fn()
+            handler.changed.wait(remaining)
+            handler.changed.clear()
+    finally:
+        observer.stop()
+        observer.join()
 
 
 def wait_for_serial_device(predicate: Callable[[Path], bool], timeout: float = 5.0) -> Optional[Path]:
     """Block until a /dev/serial/by-id entry matching `predicate` appears
     (or already exists), or until `timeout` elapses. Returns the matching
-    Path, or None on timeout.
+    Path, or None on timeout."""
+    result: dict = {}
 
-    Uses inotify (via watchdog) to react the instant udev creates the entry,
-    rather than a settle-delay followed by fixed-interval polling.
-    """
-    base = Path("/dev/serial/by-id")
+    def condition():
+        match = detect_usb_serial(predicate)
+        if match:
+            result["value"] = match[0]
+            return True
+        return False
 
-    existing = detect_usb_serial(predicate)
-    if existing:
-        return existing[0]
-
-    deadline = time.monotonic() + timeout
-
-    if not base.exists():
-        # inotify can't watch a path that doesn't exist yet. This is the one
-        # spot that still polls, but only for the directory's own creation,
-        # bounded by the caller's timeout.
-        while time.monotonic() < deadline and not base.exists():
-            time.sleep(0.05)
-        if not base.exists():
-            return None
-
-    handler = _DeviceWaiter(predicate)
-    observer = Observer()
-    observer.schedule(handler, str(base), recursive=False)
-    observer.start()
-    try:
-        # Catch anything that appeared in the gap between the first check
-        # above and the watch actually being registered.
-        existing = detect_usb_serial(predicate)
-        if existing:
-            return existing[0]
-        remaining = deadline - time.monotonic()
-        if remaining > 0:
-            handler.found.wait(remaining)
-    finally:
-        observer.stop()
-        observer.join()
-
-    return handler.result
+    return result.get("value") if _wait_until(condition, timeout=timeout) else None
 
 
 def wait_for_new_serial_device(
