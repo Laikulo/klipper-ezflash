@@ -22,6 +22,7 @@ class KConfig(object):
         old_env = os.environ.copy()
         os.environ["srctree"] = str(self.srctree.absolute())
         kc = KCLKConfig(filename="src/Kconfig")
+        del os.environ["srctree"]
         os.environ = old_env
         return kc
 
