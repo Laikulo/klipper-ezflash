@@ -115,7 +115,7 @@
           "documentation": "https://global.bttwiki.com/Octopus.html",
           "mcu": {
             "architecture": "STMicroelectronics STM32",
-            "mcu": "STM32H429",
+            "mcu": "STM32F429",
             "clock": "8MHz"
           },
           "CAN_Bridge": {
