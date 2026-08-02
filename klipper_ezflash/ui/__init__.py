@@ -16,6 +16,9 @@ from ..fault import EZFException
 
 from dialog import Dialog
 
+import os
+import multiprocessing
+
 
 class UI(object):
     def __init__(self):
@@ -140,6 +143,66 @@ class UI(object):
                 width=70,
                 height=15,
             )
+
+
+    def _run_with_progressbox(self, title, func, *args, **kwargs):
+        """Run func(*args, **kwargs) in a forked child process while streaming
+        everything it (or any subprocess it spawns) writes to stdout/stderr
+        live into a dialog progressbox. Returns func's return value, or
+        re-raises any exception raised inside func.
+
+        A real child process (not a thread) is used deliberately: dialog's
+        progressbox widget is fed via a pipe and dialog itself is launched as
+        a subprocess by pythondialog (which forks internally). Doing our own
+        stdout/stderr redirection from a *thread* races with that internal
+        fork and is unreliable. This mirrors the approach pythondialog's own
+        demo suite uses (see progressboxoid() in their examples/demo.py).
+        """
+        ctx = multiprocessing.get_context("fork")
+        read_fd, write_fd = os.pipe()
+        parent_conn, child_conn = ctx.Pipe()
+
+        def _child():
+            os.close(read_fd)  # child only writes
+            try:
+                os.dup2(write_fd, 1)
+                os.dup2(write_fd, 2)
+                os.close(write_fd)
+                try:
+                    value = func(*args, **kwargs)
+                    child_conn.send(("ok", value))
+                except Exception as e:
+                    child_conn.send(("error", e))
+            finally:
+                child_conn.close()
+
+        proc = ctx.Process(target=_child)
+        proc.start()
+
+        # Parent doesn't need the write end or its copy of the child's pipe end
+        os.close(write_fd)
+        child_conn.close()
+
+        try:
+            self._dialog.progressbox(fd=read_fd, text=title, width=78, height=20)
+        finally:
+            try:
+                os.close(read_fd)
+            except OSError:
+                pass
+            proc.join()
+
+        if parent_conn.poll():
+            status, payload = parent_conn.recv()
+        else:
+            status, payload = (
+                "error",
+                EZFException(f"{title} exited unexpectedly with no result (exit code {proc.exitcode})"),
+            )
+
+        if status == "error":
+            raise payload
+        return payload
 
     def main_menu(self):
         self._dialog.set_background_title("Main Menu")
@@ -438,14 +501,8 @@ class UI(object):
         while True:
             try:
                 if session.step_index <= 0: # Compile bootloader and firmware for the selected board and interface.
-                    self._dialog.infobox(
-                        "Compiling bootloader and firmware. This may take a while.",
-                        width=60,
-                        height=10,
-                    )
                     from ..configurator import Configurator
 
-                    # Look up board if missing (resume from session data)
                     if board is None:
                         try:
                             bdb = self._board_db or BoardDatabase()
@@ -459,51 +516,34 @@ class UI(object):
                             )
                         except Exception:
                             raise EZFException("Cannot locate board definition to rebuild firmware — start a new flash.")
+                    
+                    katapult_path = find_katapult()
+                    if not katapult_path:
+                        raise EZFException("Katapult checkout not found — cannot configure or compile")
+                    firmware_path = find_klipper()
+                    if not firmware_path:
+                        raise EZFException("Klipper checkout not found — cannot configure or compile")
 
-                    bootloader_config = Configurator.katapult(find_katapult(), board=board)
-                    firmware_config = Configurator.klipper(find_klipper(), board=board)
+                    bootloader_config = Configurator.katapult(katapult_path, board=board)
+                    firmware_config = Configurator.klipper(firmware_path, board=board)
                     chosen_iface = next((i for i in board.interfaces if i.if_type == chosen_if_type), None)
                     if chosen_iface:
                         bootloader_config.set_interface(chosen_iface)
                         firmware_config.set_interface(chosen_iface)
 
-                    bootloader_config_path = _get_settings_path().parent / "bootloader.config"
-                    firmware_config_path = _get_settings_path().parent / "firmware.config"
-
-                    bootloader_config.save_config(bootloader_config_path)
-                    bootloader_bin = flash_mod.compile_katapult(kconfig_config=bootloader_config_path)
-
-                    firmware_config.save_config(firmware_config_path)
-                    firmware_bin = flash_mod.compile_firmware(kconfig_config=firmware_config_path)
-
-                if session.step_index <= 1: # Verify that the device is connected and in bootloader mode.
-                    #TODO: dispay proper instructions for the user to put the device into bootloader mode based on bootloader type.
-                    self._dialog.infobox(
-                        "Waiting for bootloader to appear. Please put the device into bootloader mode.",
-                        width=60,
-                        height=8,
+                    bootloader_config.save_config(katapult_path / ".config")
+                    bootloader_bin = self._run_with_progressbox(
+                        "Compiling bootloader...",
+                        flash_mod.compile_katapult,
+                        katapult_path,
                     )
-                    dev = device_mod.verify_bootloader_connected(session.mcu_arch)
-                    # Validate against board (best-effort — board may be missing in resume)
-                    try:
-                        b = None
-                        try:
-                            if self._board_db is None:
-                                self._board_db = BoardDatabase()
-                            b = next(
-                                (x for x in self._board_db.get_all() if x.mcu.arch == session.mcu_arch),
-                                None,
-                            )
-                        except Exception:
-                            b = None
-                        if b is not None:
-                            device_mod.validate_device(dev, b.mcu.arch)
-                    except Exception as e:
-                        self._dialog.msgbox(f"Device validation failed: {e}", width=80, height=12)
-                        raise
-                    session.detected_devices.append(dev)
-                    session.step_index = 2
-                    save_session(session)
+
+                    firmware_config.save_config(firmware_path / ".config")
+                    firmware_bin = self._run_with_progressbox(
+                        "Compiling firmware...",
+                        flash_mod.compile_firmware,
+                        firmware_path,
+                    )
 
                 if session.step_index <= 2: # Actually flash the bootloader using katapult.
                     arch = (session.mcu_arch or "").lower()
@@ -521,9 +561,17 @@ class UI(object):
                         height=12,
                     )
                     if "rp2040" in arch or "rp2" in arch:
-                        flash_mod.flash_rp2040_katapult(bootloader_bin)
+                        self._run_with_progressbox(
+                            "Flashing bootloader (rp2040)...",
+                            flash_mod.flash_rp2040_katapult,
+                            bootloader_bin,
+                        )
                     elif "stm32" in arch:
-                        flash_mod.flash_stm32_katapult(bootloader_bin)
+                        self._run_with_progressbox(
+                            "Flashing bootloader (stm32)...",
+                            flash_mod.flash_stm32_katapult,
+                            bootloader_bin,
+                        )
                     else:
                         raise EZFException("Unsupported MCU architecture for automatic katapult flash")
 
@@ -555,20 +603,28 @@ class UI(object):
 
                         uuids = detect_mod.detect_can_uuid(interface=chosen_can)
                         uid = uuids[0]
-                        flash_mod.flash_firmware_via_flashtool(None, firmware_bin, "can", uid, can_iface=chosen_can)
+                        self._run_with_progressbox(
+                            "Flashing firmware (CAN)...",
+                            flash_mod.flash_firmware_via_flashtool,
+                            None, firmware_bin, "can", uid, can_iface=chosen_can,
+                        )
                         self._dialog.msgbox(f"Flashed firmware to CAN device!\nUUID: {uid}", width=80, height=8)
                     else:
                         devs = detect_mod.detect_usb_serial_by_id("katapult_")
                         if not devs:
                             raise EZFException("No Katapult serial device found after flashing!\n\nPlease ensure the reset jumpers are removed and that the status LED is flashing if available.")
                         serial_path = str(devs[0])
-                        flash_mod.flash_firmware_via_flashtool(None, firmware_bin, "serial", serial_path)
+                        self._run_with_progressbox(
+                            "Flashing firmware (serial)...",
+                            flash_mod.flash_firmware_via_flashtool,
+                            None, firmware_bin, "serial", serial_path,
+                        )
                         sleep(1)  # Give the device a moment to reset after flashing
                         devs_klipper = detect_mod.detect_usb_serial_by_id("Klipper_")
                         if not devs_klipper:
                             raise EZFException("No Klipper device detected after flashing.\n\nPlease check the connection.")
                         klipper_path = str(devs_klipper[0])
-                        self._dialog.msgbox(f"Flashed firmware to serial device!\n\nKatapult path: {serial_path}\nKlipper path: {klipper_path}", width=80, height=12)
+                        self._dialog.msgbox(f"Flashed firmware to USB device!\n\nKatapult path: {serial_path}\nKlipper path: {klipper_path}", width=80, height=12)
                     session.step_index = 4
                     save_session(session)
 
