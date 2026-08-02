@@ -4,6 +4,7 @@ from datetime import datetime
 from os import PathLike
 from pathlib import Path
 from typing import Optional
+from enum import Enum
 
 from .kconfig import KConfig, KConfigChoice
 from .model import BoardDefinition, BoardInterfaceDefinition
@@ -18,9 +19,13 @@ _ARCH_MUNGES = (
 
 _PROMPT_MUNGES = (("Communication interface", "Communications interface"),)
 
+class ConfiguratorTarget(Enum):
+    KLIPPER = 1
+    KATAPULT = 2
 
 class Configurator(object):
-    def __init__(self, source_path: PathLike, board: BoardDefinition):
+    def __init__(self, source_path: PathLike, board: BoardDefinition, target: Optional[ConfiguratorTarget] = None):
+        self._target: Optional[ConfiguratorTarget] = target
         self.source_path = source_path
         self.kconfig = KConfig(source_path)
         self._board = board
@@ -34,14 +39,12 @@ class Configurator(object):
 
     @classmethod
     def katapult(cls, source_path: PathLike, board: BoardDefinition) -> "Configurator":
-        configurator = cls(source_path, board)
-        configurator._configure_bootloader(board)
+        configurator = cls(source_path, board, target=ConfiguratorTarget.KATAPULT)
         return configurator
 
     @classmethod
     def klipper(cls, source_path: PathLike, board: BoardDefinition) -> "Configurator":
-        configurator = cls(source_path, board)
-        configurator._configure_firmware(board)
+        configurator = cls(source_path, board, target=ConfiguratorTarget.KLIPPER)
         return configurator
 
     def _load_from_board(self, board):
@@ -53,6 +56,21 @@ class Configurator(object):
         # RP2040 specifically
         if flash := board.mcu.flash:
             self.set_flash(flash)
+        if board.status is not None and self._target == ConfiguratorTarget.KATAPULT:
+            self.set_status_leds(board.status)
+        if board.startup_pins is not None and self._target == ConfiguratorTarget.KLIPPER:
+            self.set_startup_pins(board.startup_pins)
+
+    def set_status_leds(self, gpio_spec: str):
+        if self._target != ConfiguratorTarget.KATAPULT:
+            raise ValueError("Status LEDS are only supported for Katapult")
+        self.kconfig.symbol(prompt="Enable Status LED").set(True)
+        self.kconfig.symbol(prompt="Status LED GPIO Pin").set(gpio_spec)
+
+    def set_startup_pins(self, gpio_spec: str):
+        if self._target != ConfiguratorTarget.KLIPPER:
+            raise ValueError("Startup pins are only supported for Klipper")
+        self.kconfig.symbol(prompt="GPIO pins to set at micro-controller startup").set(gpio_spec)
 
     def set_arch(self, arch):
         # Despite what the below says, we have to deal with differing titles for some arches
@@ -130,33 +148,6 @@ class Configurator(object):
 
     def get_interfaces(self):
         return self._board.interfaces
-
-    def _configure_bootloader(self, board):
-        status_led = getattr(board, "status_led", None) or getattr(board, "status", None)
-        if isinstance(status_led, str):
-            status_led = status_led.strip()
-        else:
-            status_led = ""
-        # Only set the symbol if there's an actual value to preserve Kconfig defaults
-        if status_led:
-            self._set_string_symbol(("ENABLE_LED"), True)
-            self._set_string_symbol(("STATUS_LED_PIN", "CONFIG_STATUS_LED_PIN"), status_led)
-
-    def _configure_firmware(self, board):
-        startup_pins = getattr(board, "startup_pins", None)
-        if startup_pins is None:
-            startup_pins = ""
-        elif not isinstance(startup_pins, str):
-            startup_pins = str(startup_pins)
-        self._set_string_symbol(("INITIAL_PINS", "CONFIG_INITIAL_PINS"), startup_pins)
-
-    def _set_string_symbol(self, names, value):
-        for name in names:
-            if symbol := self.kconfig.symbol(name=name, allow_invisible=True):
-                symbol.set(value)
-                return True
-        logger.debug("No matching kconfig symbol found for %s", names)
-        return False
 
     # TODO: get_interface - return the currently active interface
     # TODO: on init, determine which interface is active (from defaults) and set as active here.
@@ -254,14 +245,6 @@ class Configurator(object):
             "#-# THIS IS WIP SOFTWARE, AND IT MAY EAT YOUR CAT. BE CAREFUL. TRUST (or not) BUT VERIFY\n"
             "#\n"
         )
-
-    def write_bootloader_config(self, board, config_path: PathLike):
-        self._configure_bootloader(board)
-        return self.save_config(config_path)
-
-    def write_firmware_config(self, board, config_path: PathLike):
-        self._configure_firmware(board)
-        return self.save_config(config_path)
 
     def save_config(self, config_path: PathLike) -> Path:
         config_path = Path(config_path).expanduser()

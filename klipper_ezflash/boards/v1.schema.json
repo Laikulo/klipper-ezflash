@@ -135,6 +135,9 @@
             "status": {
               "type": "string"
             },
+            "startup_pins": {
+              "type": "string"
+            },
             "uart": {
               "oneOf": [
                 {
