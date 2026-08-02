@@ -246,6 +246,7 @@ class BoardDefinition(object):
     variant: str
     mcu: "BoardMCUDefinition"
     can: Union["BoardCANDefinition", str, None] = None
+    supports_canbridge: Boolean = False
     usb: Optional[str] = None
     uart: Optional["BoardUARTDefinition"] = None
     status: Optional[str] = None
@@ -340,8 +341,10 @@ class BoardDefinition(object):
             )
         if can := definition.get("can"):
             opts["can"] = BoardCANDefinition.from_data(can)
+            opts['supports_canbridge'] = False
         elif can := definition.get("CAN_Bridge"):
             opts["can"] = BoardCANDefinition.from_data(can)
+            opts['supports_canbridge'] = True
         if (status := definition.get("status")) is not None:
             opts["status"] = status
         if (startup_pins := definition.get("startup_pins")) is not None:
@@ -361,6 +364,7 @@ class BoardDefinition(object):
             interfaces.append(self.uart.as_interface())
         if self.can:
             interfaces.append(self.can.as_interface())
+            # TODO: If CANBridge is supported, add a USB Canbridge psuedo-interface
         return interfaces
 
     def pretty(self, indent=0):
