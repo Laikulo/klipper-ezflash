@@ -58,6 +58,9 @@ class Configurator(object):
             self.set_flash(flash)
         if board.status is not None and self._target == ConfiguratorTarget.KATAPULT:
             self.set_status_leds(board.status)
+        is_rp2040 = "rp2040" in board.mcu.arch.lower()
+        if self._target == ConfiguratorTarget.KLIPPER and is_rp2040:
+            self.set_bootloader_offset()
         if board.startup_pins is not None and self._target == ConfiguratorTarget.KLIPPER:
             self.set_startup_pins(board.startup_pins)
 
@@ -145,6 +148,23 @@ class Configurator(object):
                 f"Could not select flash {flash}, is it supported by this version of klipper?"
             )
         raise RuntimeError(f"This MCU does not support setting the flash type")
+
+    def set_bootloader_offset(self):
+        """Select the flash offset reserved for Katapult on RP2040, so Klipper's
+        firmware is linked to run after the bootloader rather than at flash
+        offset 0. Only meaningful for Klipper builds — Katapult itself doesn't
+        have this choice, since it IS the bootloader.
+        """
+        offset_choice = self.kconfig.choice(
+            prompt=("Bootloader offset", "Application start offset")
+        )
+        if not offset_choice:
+            return
+        for opt in offset_choice.choices():
+            if "no bootloader" not in opt.nodes[0].prompt[0].lower():
+                opt.set_value(2)
+                return
+        raise ValueError("Could not find a bootloader offset option to select")
 
     def get_interfaces(self):
         return self._board.interfaces
