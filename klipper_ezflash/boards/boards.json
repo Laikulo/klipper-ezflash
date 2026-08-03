@@ -1003,7 +1003,8 @@
             "flash": "w25q080"
           },
           "usb": {},
-          "status": "gpio25"
+          "status": "gpio25",
+          "startup_pins": "gpio25"
         }
       }
     },
