@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from textual.app import App, ComposeResult
+from textual import events
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
@@ -48,7 +49,7 @@ from textual.widgets import Button, Footer, Header, Input, Label, ListItem, List
 
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
-from ..util import find_katapult, _KATAPULT_CLONE_URL, find_klipper, file_sha256
+from ..util import find_katapult, _KATAPULT_CLONE_URL, find_klipper, file_sha256  # NOTE: confirm this matches your util.py's actual function name
 from ..session import load_session, save_session, clear_session, SessionData
 from .. import device as device_mod
 from .. import flash as flash_mod
@@ -60,38 +61,85 @@ from ..fault import EZFException
 # Modal dialogs — equivalents of dialog.msgbox / yesno / menu / inputbox
 # --------------------------------------------------------------------------
 
-DIALOG_CSS = """
-ModalScreen {
+# --------------------------------------------------------------------------
+# Theme palette (dark gray + green). Hardcoded literals rather than
+# redefining Textual's built-in $accent/$panel/etc. tokens — safer across
+# Textual versions than depending on exactly how the active theme's design
+# tokens are meant to be overridden.
+# --------------------------------------------------------------------------
+_BG = "#121212"        # app/screen background
+_PANEL = "#1c1c1c"      # dialog box / panel background
+_SURFACE = "#1a1a1a"    # nested surface (log, list) background
+_ACCENT = "#3ddc84"     # green accent (borders, titles, primary buttons)
+_ACCENT_HOVER = "#2fc774"
+_ACCENT_TEXT = "#08130c"  # dark text on top of the green accent
+_TEXT = "#e6e6e6"       # primary text
+_TEXT_DIM = "#8a9199"   # secondary/pending text
+_BTN_BG = "#2a2a2a"
+_BTN_HOVER = "#353535"
+_ERROR_BG = "#5c1f1f"
+_ERROR_TEXT = "#f4b4b4"
+
+DIALOG_CSS = f"""
+ModalScreen {{
     align: center middle;
-}
-#dialog-box {
-    width: auto;
-    min-width: 40;
-    max-width: 90%;
+}}
+#dialog-box {{
+    /* Percentage width (clamped) instead of width:auto sized to content —
+       this is what actually fills the terminal instead of leaving a big
+       gap on one side; align:center middle above keeps it centered. */
+    width: 80%;
+    min-width: 50;
+    max-width: 120;
     height: auto;
     max-height: 90%;
-    border: round $accent;
-    background: $panel;
+    border: solid {_ACCENT};
+    background: {_PANEL};
+    color: {_TEXT};
     padding: 1 2;
-}
-#dialog-title {
+}}
+#dialog-title {{
     text-style: bold;
+    color: {_ACCENT};
     margin-bottom: 1;
-}
-#dialog-body {
+}}
+#dialog-body {{
     margin-bottom: 1;
-}
-#dialog-buttons {
+}}
+#dialog-buttons {{
     height: auto;
     align: right middle;
-}
-#dialog-buttons Button {
+}}
+#dialog-buttons Button {{
     margin-left: 1;
-}
-ListView {
+}}
+ListView {{
     height: auto;
     max-height: 20;
-}
+    background: {_SURFACE};
+}}
+ListItem {{
+    background: {_SURFACE};
+}}
+Button {{
+    background: {_BTN_BG};
+    color: {_TEXT};
+}}
+Button:hover {{
+    background: {_BTN_HOVER};
+}}
+Button.-primary {{
+    background: {_ACCENT};
+    color: {_ACCENT_TEXT};
+    text-style: bold;
+}}
+Button.-primary:hover {{
+    background: {_ACCENT_HOVER};
+}}
+Button.-error {{
+    background: {_ERROR_BG};
+    color: {_ERROR_TEXT};
+}}
 """
 
 
@@ -121,16 +169,22 @@ class _DialogActions:
         self.app.exit()
 
 
-# Shared binding set for arrow-key (+ vim h/j/k/l) focus navigation and a
-# local quit key. Each dialog class below assigns its own `BINDINGS = list(
-# _NAV_BINDINGS) + [...]` — copied in directly rather than inherited via a
-# separate mixin, since that's what actually guaranteed Textual picks them
-# up (whereas pulling BINDINGS in only through a bare mixin's inheritance
-# was unreliable).
+# Shared binding set for arrow-key focus navigation and quit keys. Each
+# dialog class below assigns its own `BINDINGS = list(_NAV_BINDINGS) +
+# [...]` — copied in directly rather than inherited via a separate mixin,
+# since that's what actually guaranteed Textual picks them up (whereas
+# pulling BINDINGS in only through a bare mixin's inheritance was
+# unreliable).
+#
+# NOTE: vim-style h/j/k/l navigation was dropped here — it collided with
+# the ChoiceDialog type-ahead feature below (pressing "h" to jump to a
+# choice starting with "h" vs. pressing "h" to move focus left are
+# mutually exclusive). Plain arrow keys still work everywhere.
 _NAV_BINDINGS = [
-    Binding("left,up,h,k", "focus_previous", "", show=False),
-    Binding("right,down,l,j", "focus_next", "", show=False),
+    Binding("left,up", "focus_previous", "", show=False),
+    Binding("right,down", "focus_next", "", show=False),
     Binding("q", "app_quit", "Quit", show=True),
+    Binding("ctrl+c", "app_quit", "Force Quit", show=False),
 ]
 
 
@@ -224,6 +278,12 @@ class ChoiceDialog(_DialogActions, ModalScreen[Optional[str]]):
         self._message = message
         self._title = title
         self._cancel_label = cancel_label
+        # Type-ahead state: pressing a letter jumps to the next choice
+        # whose label starts with it; pressing the same letter again
+        # cycles to the next match after that, mirroring the classic
+        # `dialog` menu's first-letter navigation.
+        self._typeahead_char: Optional[str] = None
+        self._typeahead_index: int = -1
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog-box"):
@@ -236,6 +296,32 @@ class ChoiceDialog(_DialogActions, ModalScreen[Optional[str]]):
             )
             with Horizontal(id="dialog-buttons"):
                 yield Button(self._cancel_label, id="cancel")
+
+    def on_key(self, event: events.Key) -> None:
+        char = event.character
+        if not char or len(char) != 1 or not char.isalnum():
+            return
+        self._jump_to_choice(char)
+        event.stop()
+
+    def _jump_to_choice(self, char: str) -> None:
+        char = char.lower()
+        labels = [label for _, label in self._choices]
+        count = len(labels)
+        if count == 0:
+            return
+        start = 0
+        if char == self._typeahead_char:
+            start = (self._typeahead_index + 1) % count
+        for offset in range(count):
+            idx = (start + offset) % count
+            if labels[idx].strip().lower().startswith(char):
+                list_view = self.query_one(ListView)
+                list_view.index = idx
+                list_view.focus()
+                self._typeahead_char = char
+                self._typeahead_index = idx
+                return
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         self.dismiss(event.item.name)
@@ -376,10 +462,10 @@ class StepStatus(Enum):
 
 
 _STATUS_GLYPH = {
-    StepStatus.PENDING: ("○", "dim"),
-    StepStatus.ACTIVE: ("▶", "bold yellow"),
-    StepStatus.DONE: ("✔", "bold green"),
-    StepStatus.ERROR: ("✘", "bold red"),
+    StepStatus.PENDING: ("○", f"{_TEXT_DIM}"),
+    StepStatus.ACTIVE: ("▶", "bold #f5c518"),
+    StepStatus.DONE: ("✔", f"bold {_ACCENT}"),
+    StepStatus.ERROR: ("✘", "bold #ef5350"),
 }
 
 
@@ -412,11 +498,14 @@ class StepList(Static):
 class FlashFlowScreen(Screen):
     """Persistent screen for the whole flash flow: steps left, output right."""
 
-    CSS = """
-    FlashFlowScreen #body {
+    CSS = f"""
+    FlashFlowScreen {{
+        background: {_BG};
+    }}
+    FlashFlowScreen #body {{
         height: 1fr;
-    }
-    FlashFlowScreen #steps {
+    }}
+    FlashFlowScreen #steps {{
         /* percentage width so this pane scales with the terminal instead of
            staying a fixed cell count; clamped so it stays usable on very
            narrow or very wide terminals. */
@@ -424,24 +513,27 @@ class FlashFlowScreen(Screen):
         min-width: 24;
         max-width: 56;
         height: 100%;
-        border-right: solid $accent;
-        padding: 1 2;
-    }
-    FlashFlowScreen #output {
+        border-right: solid {_ACCENT};
+        background: {_PANEL};
+        color: {_TEXT};
+        padding: 2 2;
+    }}
+    FlashFlowScreen #output {{
         /* 1fr = "take whatever width is left after #steps" — this is what
            actually makes the right pane grow/shrink with the terminal. */
         width: 1fr;
         height: 100%;
-    }
-    FlashFlowScreen RichLog {
+    }}
+    FlashFlowScreen RichLog {{
         /* Bounding the height (instead of leaving it "auto", which would
            just grow to fit all content forever) is what makes this an
            actual scrollable region — RichLog's own auto_scroll then keeps
            new lines pinned in view rather than there being nothing to
            scroll within. */
         height: 1fr;
-        background: $surface;
-    }
+        background: {_SURFACE};
+        color: {_TEXT};
+    }}
     """
 
     def __init__(self, step_names: list[str]) -> None:
@@ -554,7 +646,26 @@ class FlashFlowScreen(Screen):
 
 class EZFlashApp(App):
     TITLE = "Klipper EZFlash"
-    BINDINGS = [Binding("q", "quit", "Quit", show=True)]
+    # The command palette (default Ctrl+P) isn't relevant to this app and
+    # was cluttering the footer ("^p palette" alongside "q Quit") — off.
+    ENABLE_COMMAND_PALETTE = False
+    BINDINGS = [
+        Binding("q", "quit", "Quit", show=True),
+        Binding("ctrl+c", "quit", "Force Quit", show=False),
+    ]
+    CSS = f"""
+    Screen {{
+        background: {_BG};
+        color: {_TEXT};
+    }}
+    Header {{
+        background: {_PANEL};
+        color: {_ACCENT};
+    }}
+    Footer {{
+        background: {_PANEL};
+    }}
+    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -784,9 +895,9 @@ class EZFlashApp(App):
     # ---- flash flow -------------------------------------------------------
 
     FLASH_STEP_NAMES = [
-        "Compile bootloader (katapult)",
-        "Compile firmware (klipper)",
-        "Verify bootloader connection",
+        "Compile bootloader",
+        "Compile firmware ",
+        "Verify device connection",
         "Flash bootloader",
         "Flash firmware",
     ]
