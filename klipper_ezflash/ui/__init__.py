@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 from ..model import BoardDatabase
-from ..settings import InterfaceSettings, _get_settings_path
+from ..settings import InterfaceSettings
 from ..util import find_katapult, _KATAPULT_CLONE_URL, find_klipper, file_sha256
 from ..session import load_session, save_session, clear_session, SessionData
 from .. import device as device_mod
