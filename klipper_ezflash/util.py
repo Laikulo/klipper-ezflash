@@ -1,3 +1,4 @@
+import hashlib
 import os
 import subprocess
 import shutil
@@ -14,6 +15,7 @@ _COMMON_KATAPULT_LOCATIONS = ["~/katapult", "~/Katapult", "/usr/src/katapult"]
 _COMMON_KLIPPER_LOCATIONS = ["~/klipper", "~/Klipper", "/usr/src/klipper"]
 
 
+@cache
 def find_katapult():
     """Find the katapult checkout on the system.
 
@@ -101,3 +103,14 @@ def table_munge(key: str, table):
         if key in entry:
             return entry
     return key
+
+def file_sha256(path: Path) -> str:
+    """Return a hex SHA-256 digest of the file contents at *path*.
+
+    Reads the file in 64 KiB chunks to keep memory usage bounded even for large binaries.
+    """
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()

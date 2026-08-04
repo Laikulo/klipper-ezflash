@@ -30,6 +30,8 @@ class SessionData:
     detected_devices: List[Dict[str, Any]] = field(default_factory=list)
     selected_device: Optional[str] = None
     katapult_path: Optional[str] = None
+    bootloader_bin_hash: Optional[str] = None
+    firmware_bin_hash: Optional[str] = None
     extra: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -47,6 +49,8 @@ class SessionData:
             detected_devices=data.get("detected_devices", []),
             selected_device=data.get("selected_device"),
             katapult_path=data.get("katapult_path"),
+            bootloader_bin_hash=data.get("bootloader_bin_hash"),
+            firmware_bin_hash=data.get("firmware_bin_hash"),
             extra=data.get("extra", {}),
         )
 

@@ -7,7 +7,7 @@ from typing import Tuple, Optional
 
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings, _get_settings_path
-from ..util import find_katapult, _KATAPULT_CLONE_URL, find_klipper
+from ..util import find_katapult, _KATAPULT_CLONE_URL, find_klipper, file_sha256
 from ..session import load_session, save_session, clear_session, SessionData
 from .. import device as device_mod
 from .. import flash as flash_mod
