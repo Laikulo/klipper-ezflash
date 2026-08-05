@@ -222,23 +222,6 @@ def _validate_boards_json(data: dict, schema_path: Path) -> list:
     return sorted(errors)
 
 
-def _try_show_dialog(message: str, title: Optional[str] = None):
-    """Attempt to show a dialog.msgbox with the provided message.
-
-    Best-effort: failures (non-interactive env, dialog missing) are silently ignored
-    because the condition is already logged.
-    """
-    try:
-        from dialog import Dialog
-
-        d = Dialog(dialog="dialog")
-        if title:
-            d.set_background_title(title)
-        d.msgbox(message, width=80, height=20)
-    except Exception:
-        logger.debug("Could not show dialog to user (non-interactive or dialog not installed)")
-
-
 @dataclasses.dataclass
 class BoardDefinition(object):
     manufacturer: str
