@@ -136,12 +136,23 @@ def build_flashtool_cmd(
     interface: str,
     identifier: str,
     can_iface: Optional[str] = None,
+    interface_speed: Optional[int] = None,
 ) -> list[str]:
     """Return argv for flashing klipper firmware via katapult's flashtool.py.
 
-    `interface` is either "can" or a serial identifier; `identifier` is a
-    UUID (CAN) or serial device path (USB), matching the original call
-    signature of `flash_firmware_via_flashtool`.
+    `interface` is one of "can", "uart", or "serial" (a bare USB katapult
+    connection, which auto-negotiates and needs no speed argument).
+    `identifier` is a UUID (CAN) or serial device path (UART/serial).
+
+    `interface_speed` is the configured CAN bitrate or UART baud rate.
+    It's passed to flashtool.py as `-b` for UART.
+
+    NOTE: it is NOT currently passed through for CAN — flashtool.py talks
+    to an already-up CAN network interface, and as far as we've
+    confirmed, the bitrate there is a property of the SocketCAN interface
+    itself (`ip link set canX type can bitrate <rate>`) rather than a
+    flashtool.py flag. If flashtool.py does accept its own CAN bitrate
+    override, wire it in here once that's confirmed.
     """
     kp = Path(katapult_path) if katapult_path else find_katapult()
     if not kp:
@@ -153,6 +164,10 @@ def build_flashtool_cmd(
     if interface == "can":
         chosen = can_iface or os.environ.get("KBOARD_CAN_INTERFACE") or "can0"
         return [str(py), str(flashtool), "-i", chosen, "-u", identifier, "-f", str(firmware_bin)]
+    elif interface == "uart":
+        if interface_speed is None:
+            raise EZFException("UART firmware flash requires an interface_speed (baud rate)")
+        return [str(py), str(flashtool), "-d", identifier, "-b", str(interface_speed), "-f", str(firmware_bin)]
     else:
         return [str(py), str(flashtool), "-d", identifier, "-f", str(firmware_bin)]
 
@@ -195,11 +210,12 @@ def flash_stm32_katapult(bootloader_bin: Path, katapult_path: Optional[Path] = N
     _run_with_success_check(argv, success_patterns=STM32_SUCCESS_PATTERNS)
 
 
-def flash_firmware_via_flashtool(katapult_path: Optional[Path], firmware_bin: Path, interface: str, identifier: str, can_iface: Optional[str] = None) -> None:
+def flash_firmware_via_flashtool(katapult_path: Optional[Path], firmware_bin: Path, interface: str, identifier: str, can_iface: Optional[str] = None, interface_speed: Optional[int] = None) -> None:
     """Flash klipper firmware using katapult's flashtool.py.
 
-    `interface` is either a serial path or a host CAN interface name.
-    `identifier` is a UUID or serial argument as required.
+    `interface` is one of "can", "uart", or "serial". `identifier` is a
+    UUID or serial device path as required. `interface_speed` is the CAN
+    bitrate or UART baud rate — see build_flashtool_cmd for details.
     """
-    argv = build_flashtool_cmd(katapult_path, firmware_bin, interface, identifier, can_iface)
+    argv = build_flashtool_cmd(katapult_path, firmware_bin, interface, identifier, can_iface, interface_speed)
     _run(argv)

@@ -34,7 +34,11 @@ Design notes
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import datetime
+import io
 import shlex
+import tempfile
 import traceback
 from enum import Enum
 from pathlib import Path
@@ -45,7 +49,8 @@ from textual import events
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView, RichLog, Static
+from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView, LoadingIndicator, RichLog, Static
+from rich.text import Text
 
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
@@ -83,6 +88,14 @@ _ERROR_TEXT = "#f4b4b4"
 DIALOG_CSS = f"""
 ModalScreen {{
     align: center middle;
+    /* Explicit opaque background — Textual's default ModalScreen
+       background is a translucent scrim over whatever screen is
+       mounted below it, which is how a previous screen's leftover
+       content (e.g. amber step-list text from an earlier flash) could
+       show through around the edges of a dialog that doesn't fully
+       cover the terminal. Making this fully opaque means nothing from
+       underneath can bleed through, regardless of dialog width. */
+    background: {_BG};
 }}
 #dialog-box {{
     /* Percentage width (clamped) instead of width:auto sized to content —
@@ -121,6 +134,15 @@ ListView {{
 ListItem {{
     background: {_SURFACE};
 }}
+/* The selected/highlighted row in a ListView — Textual applies a
+   `--highlight` class to it. Without this rule the only cue was the
+   row's text going bold, which is easy to miss; this gives it the
+   same kind of solid highlight bar the old `dialog` UI had. */
+ListView > ListItem.--highlight {{
+    background: {_ACCENT};
+    color: {_ACCENT_TEXT};
+    text-style: bold;
+}}
 Button {{
     background: {_BTN_BG};
     color: {_TEXT};
@@ -143,6 +165,19 @@ Button.-error {{
 """
 
 
+def _mnemonic_label(label: str) -> Text:
+    """Return `label` as Rich Text with its first alphanumeric character
+    underlined — a visual cue for the hotkey/type-ahead character,
+    mirroring the classic `dialog` TUI's underlined access-key
+    convention. Used for both ListView choice rows and Button labels."""
+    text = Text(label)
+    for i, ch in enumerate(label):
+        if ch.isalnum():
+            text.stylize("underline", i, i + 1)
+            break
+    return text
+
+
 class _DialogActions:
     """Shared action implementations for dialog screens.
 
@@ -153,6 +188,16 @@ class _DialogActions:
     Python method resolution and unaffected by how Textual's binding
     collection walks a class's MRO.
     """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        # Belt-and-suspenders alongside the `ModalScreen { align: center
+        # middle; }` CSS rule: setting it imperatively too guarantees the
+        # dialog is actually centered regardless of any ambiguity in how
+        # a *scoped* stylesheet's type-selector (`ModalScreen`, the base
+        # class) resolves against each subclass's own runtime type.
+        self.styles.align_horizontal = "center"
+        self.styles.align_vertical = "middle"
 
     def action_focus_previous(self) -> None:
         self.focus_previous()
@@ -167,6 +212,24 @@ class _DialogActions:
         # top — no dependency on bubbling semantics we can't fully see
         # from here.
         self.app.exit()
+
+    def _activate_button_by_letter(self, char: str) -> bool:
+        """Look for a Button whose label's first alphanumeric character
+        matches `char` (case-insensitive); if found, press it directly —
+        this is the "hotkey" half of the mnemonic-letter feature (see
+        `_mnemonic_label`), so pressing e.g. "Y" activates a "Yes" button
+        immediately rather than only moving focus to it."""
+        char = char.lower()
+        for button in self.query(Button):
+            label = button.label
+            label_text = getattr(label, "plain", None) or str(label)
+            for ch in label_text:
+                if ch.isalnum():
+                    if ch.lower() == char:
+                        button.press()
+                        return True
+                    break
+        return False
 
 
 # Shared binding set for arrow-key focus navigation and quit keys. Each
@@ -207,10 +270,15 @@ class MessageDialog(_DialogActions, ModalScreen[None]):
                 yield Label(self._title, id="dialog-title")
             yield Static(self._message, id="dialog-body")
             with Horizontal(id="dialog-buttons"):
-                yield Button("OK", id="ok", variant="primary")
+                yield Button(_mnemonic_label("OK"), id="ok", variant="primary")
 
     def on_mount(self) -> None:
         self.query_one("#ok", Button).focus()
+
+    def on_key(self, event: events.Key) -> None:
+        char = event.character
+        if char and len(char) == 1 and char.isalnum() and self._activate_button_by_letter(char):
+            event.stop()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.dismiss(None)
@@ -247,18 +315,23 @@ class ConfirmDialog(_DialogActions, ModalScreen[bool]):
             yield Static(self._message, id="dialog-body")
             with Horizontal(id="dialog-buttons"):
                 yield Button(
-                    self._no_label,
+                    _mnemonic_label(self._no_label),
                     id="no",
                     variant="error" if self._default_no else "default",
                 )
                 yield Button(
-                    self._yes_label,
+                    _mnemonic_label(self._yes_label),
                     id="yes",
                     variant="default" if self._default_no else "primary",
                 )
 
     def on_mount(self) -> None:
         self.query_one("#no" if self._default_no else "#yes", Button).focus()
+
+    def on_key(self, event: events.Key) -> None:
+        char = event.character
+        if char and len(char) == 1 and char.isalnum() and self._activate_button_by_letter(char):
+            event.stop()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.dismiss(event.button.id == "yes")
@@ -292,24 +365,27 @@ class ChoiceDialog(_DialogActions, ModalScreen[Optional[str]]):
             if self._message:
                 yield Static(self._message, id="dialog-body")
             yield ListView(
-                *[ListItem(Label(label), name=tag) for tag, label in self._choices]
+                *[ListItem(Label(_mnemonic_label(label)), name=tag) for tag, label in self._choices]
             )
             with Horizontal(id="dialog-buttons"):
-                yield Button(self._cancel_label, id="cancel")
+                yield Button(_mnemonic_label(self._cancel_label), id="cancel")
 
     def on_key(self, event: events.Key) -> None:
         char = event.character
         if not char or len(char) != 1 or not char.isalnum():
             return
-        self._jump_to_choice(char)
-        event.stop()
+        if self._jump_to_choice(char):
+            event.stop()
+            return
+        if self._activate_button_by_letter(char):
+            event.stop()
 
-    def _jump_to_choice(self, char: str) -> None:
+    def _jump_to_choice(self, char: str) -> bool:
         char = char.lower()
         labels = [label for _, label in self._choices]
         count = len(labels)
         if count == 0:
-            return
+            return False
         start = 0
         if char == self._typeahead_char:
             start = (self._typeahead_index + 1) % count
@@ -321,7 +397,8 @@ class ChoiceDialog(_DialogActions, ModalScreen[Optional[str]]):
                 list_view.focus()
                 self._typeahead_char = char
                 self._typeahead_index = idx
-                return
+                return True
+        return False
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         self.dismiss(event.item.name)
@@ -370,14 +447,19 @@ class ButtonChoiceDialog(_DialogActions, ModalScreen[Optional[str]]):
                 yield Static(self._message, id="dialog-body")
             with Horizontal(id="dialog-buttons"):
                 for i, (tag, label) in enumerate(self._choices):
-                    yield Button(label, id=f"choice-{i}", variant="primary" if i == 0 else "default")
+                    yield Button(_mnemonic_label(label), id=f"choice-{i}", variant="primary" if i == 0 else "default")
                 if self._cancel_label:
-                    yield Button(self._cancel_label, id="cancel")
+                    yield Button(_mnemonic_label(self._cancel_label), id="cancel")
 
     def on_mount(self) -> None:
         first = self.query("#dialog-buttons Button")
         if first:
             first.first().focus()
+
+    def on_key(self, event: events.Key) -> None:
+        char = event.character
+        if char and len(char) == 1 and char.isalnum() and self._activate_button_by_letter(char):
+            event.stop()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "cancel":
@@ -411,11 +493,20 @@ class InputDialog(_DialogActions, ModalScreen[Optional[str]]):
             yield Static(self._prompt, id="dialog-body")
             yield Input(value=self._initial, id="input-field")
             with Horizontal(id="dialog-buttons"):
-                yield Button("Cancel", id="cancel")
-                yield Button("OK", id="ok", variant="primary")
+                yield Button(_mnemonic_label("Cancel"), id="cancel")
+                yield Button(_mnemonic_label("OK"), id="ok", variant="primary")
 
     def on_mount(self) -> None:
         self.query_one(Input).focus()
+
+    def on_key(self, event: events.Key) -> None:
+        # Unlike the other dialogs, this one has a text field — letter
+        # keys must type into it, not trigger Cancel/OK by mnemonic.
+        if self.query_one(Input).has_focus:
+            return
+        char = event.character
+        if char and len(char) == 1 and char.isalnum() and self._activate_button_by_letter(char):
+            event.stop()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value)
@@ -428,6 +519,32 @@ class InputDialog(_DialogActions, ModalScreen[Optional[str]]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+
+@contextlib.contextmanager
+def _capture_output_to_log(screen: "FlashFlowScreen"):
+    """Redirect stdout/stderr into the flash screen's log for the
+    duration of the block.
+
+    Some synchronous library code we call into — notably kconfiglib, via
+    Configurator/KConfig — prints warnings directly to stdout/stderr
+    during parsing rather than raising or logging through the `logging`
+    module. Since that's a direct write to the real terminal, it bypasses
+    Textual's rendering entirely and corrupts the screen. This can't be
+    streamed live (the call is synchronous, not a subprocess we're
+    reading from), but capturing and flushing it into the log after the
+    fact at least keeps it inside the app instead of on the raw
+    terminal, and it's still visible to the user.
+    """
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            yield
+    finally:
+        captured = buf.getvalue()
+        if captured.strip():
+            for line in captured.splitlines():
+                screen.write(line)
 
 
 def _valid_cached_binary(path: Optional[Path], hash_str: Optional[str]) -> Optional[Path]:
@@ -498,6 +615,11 @@ class StepList(Static):
 class FlashFlowScreen(Screen):
     """Persistent screen for the whole flash flow: steps left, output right."""
 
+    BINDINGS = [
+        Binding("q", "request_quit", "Quit", show=True),
+        Binding("ctrl+c", "request_quit", "Force Quit", show=False),
+    ]
+
     CSS = f"""
     FlashFlowScreen {{
         background: {_BG};
@@ -516,7 +638,7 @@ class FlashFlowScreen(Screen):
         border-right: solid {_ACCENT};
         background: {_PANEL};
         color: {_TEXT};
-        padding: 2 2;
+        padding: 2 3;
     }}
     FlashFlowScreen #output {{
         /* 1fr = "take whatever width is left after #steps" — this is what
@@ -530,7 +652,7 @@ class FlashFlowScreen(Screen):
            actual scrollable region — RichLog's own auto_scroll then keeps
            new lines pinned in view rather than there being nothing to
            scroll within. */
-        height: 1fr;
+        height: 2fr;
         background: {_SURFACE};
         color: {_TEXT};
     }}
@@ -546,6 +668,16 @@ class FlashFlowScreen(Screen):
         self.output_log = RichLog(
             highlight=False, markup=False, wrap=True, max_lines=5000, auto_scroll=True
         )
+        # Every line passed to write() is mirrored to this file immediately,
+        # regardless of whether the on-screen log gets cleared between
+        # steps — this is what makes the full transcript recoverable after
+        # the fact (success, error, or abort) even though the visible
+        # RichLog only ever shows the current step.
+        self.log_path = Path(tempfile.gettempdir()) / f"ezflash-log-{datetime.datetime.now():%Y%m%d-%H%M%S}.txt"
+        try:
+            self._log_file = self.log_path.open("a", encoding="utf-8")
+        except OSError:
+            self._log_file = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -556,16 +688,43 @@ class FlashFlowScreen(Screen):
                 yield self.output_log
         yield Footer()
 
+    def action_request_quit(self) -> None:
+        # No confirmation here on purpose: push_screen_wait requires an
+        # active Textual worker (key-binding actions run directly on the
+        # message pump, not inside one — that mismatch is exactly what
+        # raised NoActiveWorker and crashed this on a real attempt to
+        # abort mid-compile). The flash/compile steps are fast enough
+        # that a confirmation isn't worth the risk of crashing the exit
+        # path itself — just quit immediately.
+        self.app.exit()
+
+    def on_unmount(self) -> None:
+        if self._log_file is not None:
+            try:
+                self._log_file.close()
+            except OSError:
+                pass
+
     def set_step(self, index: int, status: StepStatus) -> None:
         self.step_list.set_status(index, status)
 
     def start_step(self, index: int, header: Optional[str] = None) -> None:
-        """Begin a new top-level flash-flow step: clear the output pane
-        (so it only ever shows the current step's output, not everything
-        accumulated so far), mark the step ACTIVE, and optionally write a
-        header line to kick things off."""
-        self.output_log.clear()
+        """Begin a new top-level flash-flow step: mark it ACTIVE, clear the
+        on-screen log, and write a banner into it.
+
+        The on-screen RichLog only shows the current step — cleared here on
+        every transition. Nothing is actually lost: write() mirrors every
+        line to self.log_path as it's produced, so the complete transcript
+        for the whole flow is always recoverable from disk regardless of
+        whether the flow finishes, errors, or is aborted.
+        """
         self.set_step(index, StepStatus.ACTIVE)
+        self.output_log.clear()
+        if 0 <= index < len(self.step_list._steps):
+            step_name = self.step_list._steps[index]
+        else:
+            step_name = f"Step {index}"
+        self.write(f"\n{'─' * 8} {step_name} {'─' * 8}")
         if header:
             self.write(header)
 
@@ -576,6 +735,82 @@ class FlashFlowScreen(Screen):
         # we still want each new line during an active flash to pull the
         # view back down rather than silently piling up out of sight.
         self.output_log.scroll_end(animate=False)
+        if self._log_file is not None:
+            try:
+                self._log_file.write(line + "\n")
+                self._log_file.flush()
+            except OSError:
+                pass
+
+    async def _stream_subprocess(
+        self, argv: list[str], cwd: Optional[Path] = None, capture: Optional[list[str]] = None
+    ) -> int:
+        """Run argv, streaming stdout+stderr into the log.
+
+        Reads raw chunks (not line-by-line) and splits on both `\\r` and
+        `\\n` ourselves. This matters for tools like dfu-util and make
+        that redraw an in-place progress line via bare `\\r` with no
+        real newline in between ticks — `async for line in proc.stdout`
+        only splits on `\\n`, so an entire burst of `\\r`-separated
+        percentage updates arrives as one lump the moment a real newline
+        finally shows up, which is what rendered as everything jammed
+        onto one visual line. Here, intermediate `\\r`-terminated
+        updates are held and only the final one before the next real
+        line (or end of stream) is actually written — collapsing a
+        rapid progress burst into one tidy line instead of dumping every
+        tick.
+
+        If `capture` is given, every line actually written is also
+        appended to it (e.g. for success-pattern checks that need the
+        full text afterward).
+        """
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            cwd=str(cwd) if cwd else None,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        assert proc.stdout is not None
+        buf = ""
+        pending_progress: Optional[str] = None
+
+        def flush_progress() -> None:
+            nonlocal pending_progress
+            if pending_progress is not None:
+                self.write(pending_progress)
+                if capture is not None:
+                    capture.append(pending_progress)
+                pending_progress = None
+
+        while True:
+            chunk = await proc.stdout.read(4096)
+            if not chunk:
+                break
+            buf += chunk.decode(errors="replace")
+            while True:
+                cut_n = buf.find("\n")
+                cut_r = buf.find("\r")
+                if cut_n == -1 and cut_r == -1:
+                    break
+                if cut_r != -1 and (cut_n == -1 or cut_r < cut_n):
+                    segment, buf = buf[:cut_r], buf[cut_r + 1:]
+                    if segment:
+                        pending_progress = segment
+                else:
+                    segment, buf = buf[:cut_n], buf[cut_n + 1:]
+                    if segment.endswith("\r"):
+                        segment = segment[:-1]
+                    flush_progress()
+                    if segment:
+                        self.write(segment)
+                        if capture is not None:
+                            capture.append(segment)
+        flush_progress()
+        if buf:
+            self.write(buf)
+            if capture is not None:
+                capture.append(buf)
+        return await proc.wait()
 
     async def run_command(self, *args: str, cwd: Optional[Path] = None) -> int:
         """Run a subprocess, streaming stdout/stderr into the log.
@@ -585,16 +820,7 @@ class FlashFlowScreen(Screen):
         no polling loop, no fork.
         """
         self.write(f"$ {' '.join(shlex.quote(a) for a in args)}")
-        proc = await asyncio.create_subprocess_exec(
-            *args,
-            cwd=str(cwd) if cwd else None,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-        assert proc.stdout is not None
-        async for raw_line in proc.stdout:
-            self.write(raw_line.decode(errors="replace").rstrip())
-        return await proc.wait()
+        return await self._stream_subprocess(list(args), cwd=cwd)
 
     async def run_make(self, title: str, cwd: Path, *make_args: str) -> None:
         """Run `make` in cwd, raising EZFException on non-zero exit."""
@@ -619,19 +845,8 @@ class FlashFlowScreen(Screen):
         """
         self.write(f"\n[ {title} ]")
         self.write(f"$ {' '.join(shlex.quote(a) for a in argv)}")
-        proc = await asyncio.create_subprocess_exec(
-            *argv,
-            cwd=str(cwd) if cwd else None,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-        assert proc.stdout is not None
-        output_lines = []
-        async for raw_line in proc.stdout:
-            line = raw_line.decode(errors="replace").rstrip()
-            output_lines.append(line)
-            self.write(line)
-        rc = await proc.wait()
+        output_lines: list[str] = []
+        rc = await self._stream_subprocess(argv, cwd=cwd, capture=output_lines)
         if rc == 0:
             return
         output = "\n".join(output_lines)
@@ -665,6 +880,9 @@ class EZFlashApp(App):
     Footer {{
         background: {_PANEL};
     }}
+    LoadingIndicator {{
+        color: {_ACCENT};
+    }}
     """
 
     def __init__(self) -> None:
@@ -674,10 +892,22 @@ class EZFlashApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield LoadingIndicator(id="startup-loading")
         yield Footer()
 
     async def on_mount(self) -> None:
         self.run_worker(self.launch(), exclusive=True)
+
+    def _clear_startup_loading(self) -> None:
+        """Remove the startup LoadingIndicator, if it's still mounted.
+        Called right before the first dialog of launch() appears, so the
+        user gets visual feedback during whatever setup work (board
+        database parsing, etc.) happens before that point instead of a
+        blank-looking screen that reads as "frozen"."""
+        try:
+            self.query_one("#startup-loading", LoadingIndicator).remove()
+        except Exception:
+            pass
 
     # ---- thin awaitable wrappers replacing the old dialog calls ----------
 
@@ -833,14 +1063,14 @@ class EZFlashApp(App):
                 ("uart_baudrate", f"UART baud rate: {settings.uart_baudrate} baud"),
             ]
             try:
-                can_list = detect_mod.list_can_interfaces()
+                can_list = await asyncio.to_thread(detect_mod.list_can_interfaces)
             except Exception:
                 can_list = []
             if len(can_list) > 1:
                 choices.append(("can_interface", f"CAN interface: {settings.can_interface}"))
-            choices.append(("back", "Exit to main menu"))
+            choices.append(("back", "Back to main menu"))
 
-            tag = await self.menu(choices=choices, title="Communication Settings", cancel_label="Exit")
+            tag = await self.menu(choices=choices, title="Communication Settings", cancel_label="Back")
 
             if tag == "can_speed":
                 new_value = await self.choose_rate(
@@ -870,7 +1100,7 @@ class EZFlashApp(App):
                         await self.msgbox(str(e))
             elif tag == "can_interface":
                 try:
-                    can_list = detect_mod.list_can_interfaces()
+                    can_list = await asyncio.to_thread(detect_mod.list_can_interfaces)
                 except Exception:
                     can_list = []
                 if not can_list:
@@ -924,6 +1154,21 @@ class EZFlashApp(App):
                 else:
                     chosen_if_type = ifaces[0].if_type if ifaces else None
 
+                if chosen_if_type == "CANBRIDGE":
+                    # The interface is now visible/selectable (per the
+                    # boards.json supports_canbridge flag), but actually
+                    # configuring for it isn't wired up yet —
+                    # Configurator.set_canbridge() is still an explicit
+                    # NotImplementedError stub. Say so clearly here
+                    # rather than letting the user compile/flash their
+                    # way into that crash deep in the flow.
+                    await self.msgbox(
+                        "USB-to-CAN bridge flashing isn't implemented yet.\n\n"
+                        "Select a different interface for this board for now.",
+                        title="Not yet supported",
+                    )
+                    continue
+
                 # Confirmation step: show the full board summary (including
                 # its interface list) plus the interface just chosen, and
                 # let the user either proceed or go back and pick again
@@ -945,10 +1190,24 @@ class EZFlashApp(App):
                 else:
                     return
 
+            # Capture the currently-configured speed for this interface
+            # into the session now — so a resumed session (e.g. after a
+            # reboot to rewire a CAN toolhead) flashes at the same speed
+            # it was set up with, even if the global default in Settings
+            # gets changed in the meantime.
+            interface_speed = None
+            if chosen_if_type:
+                _settings_for_speed = InterfaceSettings()
+                if chosen_if_type.upper() == "CAN":
+                    interface_speed = _settings_for_speed.can_speed
+                elif chosen_if_type.upper() == "UART":
+                    interface_speed = _settings_for_speed.uart_baudrate
+
             session = SessionData(
                 step_index=0,
                 mcu_arch=board.mcu.arch,
                 interface=(chosen_if_type.lower() if chosen_if_type else None),
+                interface_speed=interface_speed,
                 manufacturer=board.manufacturer,
                 model=board.model,
                 variant=board.variant,
@@ -972,6 +1231,7 @@ class EZFlashApp(App):
                 try:
                     bootloader_bin = firmware_bin = None
                     katapult_serial_path = klipper_path = can_uid = None
+                    known_katapult_devs: Optional[list] = None
 
                     if session.step_index <= 0:
                         katapult_path = find_katapult()
@@ -1012,12 +1272,13 @@ class EZFlashApp(App):
                                 except Exception:
                                     raise EZFException("Cannot locate board definition to rebuild firmware — start a new flash.")
 
-                            bootloader_config = Configurator.katapult(katapult_path, board=board)
-                            firmware_config = Configurator.klipper(firmware_path, board=board)
-                            chosen_iface = next((i for i in board.interfaces if i.if_type == chosen_if_type), None)
-                            if chosen_iface:
-                                bootloader_config.set_interface(chosen_iface)
-                                firmware_config.set_interface(chosen_iface)
+                            with _capture_output_to_log(screen):
+                                bootloader_config = Configurator.katapult(katapult_path, board=board)
+                                firmware_config = Configurator.klipper(firmware_path, board=board)
+                                chosen_iface = next((i for i in board.interfaces if i.if_type == chosen_if_type), None)
+                                if chosen_iface:
+                                    bootloader_config.set_interface(chosen_iface)
+                                    firmware_config.set_interface(chosen_iface)
 
                         # --- Step 0: compile bootloader (skip if the
                         # cached output from a previous run is still
@@ -1028,7 +1289,8 @@ class EZFlashApp(App):
                             screen.set_step(0, StepStatus.DONE)
                         else:
                             screen.start_step(0)
-                            bootloader_config.save_config(katapult_path / ".config")
+                            with _capture_output_to_log(screen):
+                                bootloader_config.save_config(katapult_path / ".config")
                             await screen.run_argv("Cleaning katapult...", flash_mod.MAKE_CLEAN_ARGS, cwd=katapult_path)
                             await screen.run_argv("Compiling katapult...", flash_mod.MAKE_BUILD_ARGS, cwd=katapult_path)
                             bootloader_bin = flash_mod.katapult_output_path(katapult_path)
@@ -1047,7 +1309,8 @@ class EZFlashApp(App):
                             screen.set_step(1, StepStatus.DONE)
                         else:
                             screen.start_step(1)
-                            firmware_config.save_config(firmware_path / ".config")
+                            with _capture_output_to_log(screen):
+                                firmware_config.save_config(firmware_path / ".config")
                             await screen.run_argv("Cleaning klipper...", flash_mod.MAKE_CLEAN_ARGS, cwd=firmware_path)
                             await screen.run_argv("Compiling firmware...", flash_mod.MAKE_BUILD_ARGS, cwd=firmware_path)
                             firmware_bin = flash_mod.klipper_output_path(firmware_path)
@@ -1084,14 +1347,42 @@ class EZFlashApp(App):
                         )
 
                         screen.start_step(2, "Re-checking bootloader before flashing. Please keep the device connected.")
-                        stable_dev = device_mod.verify_bootloader_connected(session.mcu_arch)
+                        stable_dev = await asyncio.to_thread(device_mod.verify_bootloader_connected, session.mcu_arch)
                         session.detected_devices.append(stable_dev)
                         save_session(session)
                         screen.write(f"Bootloader appears stable: {stable_dev.get('raw', '<unknown>')}")
+
+                        # Not ambiguous (verify_bootloader_connected already
+                        # guarantees exactly one device matching this arch),
+                        # but a bootloader device of a *different*
+                        # architecture also being present is easy to miss
+                        # and could mean the wrong board was left connected
+                        # or the wrong board was selected in the app.
+                        other_devices = stable_dev.get("other_devices") or []
+                        if other_devices:
+                            other_list = "\n".join(f"  - {d.get('raw', '<unknown>')}" for d in other_devices)
+                            screen.write(f"Note: other bootloader device(s) also detected:\n{other_list}")
+                            await self.msgbox(
+                                "Another bootloader-mode device (different architecture) was "
+                                f"also detected:\n\n{other_list}\n\n"
+                                "This won't affect which device gets flashed, but double-check "
+                                "you selected the right board before continuing.",
+                                title="Other bootloader device detected",
+                            )
+
                         screen.set_step(2, StepStatus.DONE)
 
                         screen.start_step(3)
-                        if "rp2040" in arch or "rp2" in arch:
+                        # Snapshot any katapult_ devices already present
+                        # BEFORE flashing — this is what lets us wait for
+                        # the newly re-enumerated device specifically
+                        # afterward, rather than matching any katapult_
+                        # device including a leftover one from another
+                        # board's earlier session.
+                        known_katapult_devs = await asyncio.to_thread(
+                            detect_mod.detect_usb_serial, lambda p: "katapult_" in p.name
+                        )
+                        if "rp2040" in arch:
                             argv, cwd = flash_mod.build_rp2040_flash_cmd(bootloader_bin)
                             await screen.run_argv("Flashing bootloader (rp2040)...", argv, cwd=cwd)
                         elif "stm32" in arch:
@@ -1111,9 +1402,10 @@ class EZFlashApp(App):
                         iface = (session.interface or "usb").lower()
                         is_canbus = "canbus" in iface or "canbridge" in iface
                         is_can_only = ("can" in iface) and not is_canbus
+                        is_uart = "uart" in iface
 
                         if is_can_only or is_canbus:
-                            can_list = detect_mod.list_can_interfaces()
+                            can_list = await asyncio.to_thread(detect_mod.list_can_interfaces)
                             if not can_list:
                                 raise EZFException("No CAN network interfaces detected on host (e.g. can0).")
                             settings = InterfaceSettings()
@@ -1130,10 +1422,13 @@ class EZFlashApp(App):
                                     raise EZFException("User cancelled CAN interface selection")
                                 chosen_can = can_list[int(tag)]
 
-                            uuids = detect_mod.detect_can_uuid(interface=chosen_can)
+                            uuids = await asyncio.to_thread(detect_mod.detect_can_uuid, interface=chosen_can)
                             can_uid = uuids[0]
-                            argv = flash_mod.build_flashtool_cmd(None, firmware_bin, "can", can_uid, chosen_can)
-                            await screen.run_argv("Flashing firmware (CAN)...", argv)
+                            argv = flash_mod.build_flashtool_cmd(
+                                None, firmware_bin, "can", can_uid, chosen_can,
+                                interface_speed=session.interface_speed,
+                            )
+                            await screen.run_argv("Flashing firmware over CAN...", argv)
                             # NOTE: CANBus (USB-CAN bridge) boards aren't a
                             # selectable flash path yet — see the TODO in
                             # model.py about a "USB Canbridge" pseudo-
@@ -1142,9 +1437,48 @@ class EZFlashApp(App):
                             # own bootloader stage) captured here alongside
                             # can_uid, same as the USB branch below captures
                             # both of its identifiers.
+                        elif is_uart:
+                            # UART goes through a generic USB-to-serial
+                            # adapter (FTDI, CH340, etc.) wired to the
+                            # board's UART pins — there's no
+                            # "katapult_"/"Klipper_" style name to
+                            # auto-match against the way a board's own
+                            # native USB port has, so the user has to
+                            # pick which serial device it actually is.
+                            screen.write(
+                                "UART interface selected — this board's bootloader can't be "
+                                "auto-detected over a generic serial adapter; select the port "
+                                "connected to its UART pins below."
+                            )
+                            ports = await asyncio.to_thread(detect_mod.list_serial_ports)
+                            if not ports:
+                                raise EZFException(
+                                    "No serial devices found. Connect the USB-to-UART adapter "
+                                    "wired to this board's UART pins and try again."
+                                )
+                            if len(ports) == 1:
+                                chosen_port = ports[0]
+                            else:
+                                tag = await self.menu(
+                                    choices=[(str(i), str(p)) for i, p in enumerate(ports)],
+                                    message="Multiple serial devices detected. Select the one "
+                                            "connected to this board's UART pins:",
+                                )
+                                if tag is None:
+                                    raise EZFException("User cancelled serial port selection")
+                                chosen_port = ports[int(tag)]
+
+                            speed = session.interface_speed or InterfaceSettings().uart_baudrate
+                            argv = flash_mod.build_flashtool_cmd(
+                                None, firmware_bin, "uart", str(chosen_port), interface_speed=speed
+                            )
+                            await screen.run_argv(f"Flashing firmware via UART ({chosen_port})...", argv)
+                            screen.write(f"Flashed firmware over UART: {chosen_port}")
                         else:
                             screen.write("Waiting for the device to reboot into Katapult....")
-                            katapult_dev = detect_mod.wait_for_katapult_device(timeout=10.0)
+                            katapult_dev = await asyncio.to_thread(
+                                detect_mod.wait_for_katapult_device, known=known_katapult_devs, timeout=10.0
+                            )
                             if not katapult_dev:
                                 raise EZFException(
                                     "No Katapult serial device found after flashing!\n\n"
@@ -1152,11 +1486,11 @@ class EZFlashApp(App):
                                     "status LED is flashing if available."
                                 )
                             katapult_serial_path = str(katapult_dev)
-                            known_klipper_devs = detect_mod.detect_usb_serial(lambda p: "Klipper_" in p.name)
+                            known_klipper_devs = await asyncio.to_thread(detect_mod.detect_usb_serial, lambda p: "Klipper_" in p.name)
 
                             argv = flash_mod.build_flashtool_cmd(None, firmware_bin, "serial", katapult_serial_path)
                             await screen.run_argv("Flashing firmware via Katapult...", argv)
-                            klipper_dev = detect_mod.wait_for_klipper_device(known=known_klipper_devs, timeout=10.0)
+                            klipper_dev = await asyncio.to_thread(detect_mod.wait_for_klipper_device, known=known_klipper_devs, timeout=10.0)
                             if not klipper_dev:
                                 raise EZFException("No Klipper device detected after flashing.\n\nPlease check the connection.")
                             klipper_path = str(klipper_dev)
@@ -1177,10 +1511,10 @@ class EZFlashApp(App):
                     # means it's guaranteed visible and requires an
                     # explicit OK, instead of possibly flashing by unread.
                     iface = (session.interface or "usb").lower()
-                    is_canbus = "canbus" in iface or "canbridge" in iface
-                    is_can_only = ("can" in iface) and not is_canbus
+                    is_canbridge = "canbus" in iface or "canbridge" in iface
+                    is_can_only = ("can" in iface) and not is_canbridge
                     summary_lines = ["Flash flow completed successfully."]
-                    if is_canbus:
+                    if is_canbridge:
                         if katapult_serial_path:
                             summary_lines.append(f"Katapult serial: {katapult_serial_path}")
                         if can_uid:
@@ -1256,22 +1590,14 @@ class EZFlashApp(App):
 
     async def launch(self) -> None:
         try:
-            try:
-                existing = load_session()
-            except Exception:
-                existing = None
-            if existing is not None:
-                tag = await self.menu(
-                    choices=[("resume", "Resume previous flash"), ("new", "Start a new flash")],
-                    message="A previous flash session was detected.\n\nResume or start a new flash?",
-                    cancel_label="Start new",
-                )
-                if tag == "resume":
-                    try:
-                        await self.start_flash_flow(resume_session=existing)
-                    except Exception as e:
-                        await self.msgbox(f"Failed to resume session: {e}")
-
+            # WIP warning and board-database load/warnings both happen
+            # BEFORE the resume-session check now — previously they were
+            # queued to run only after start_flash_flow(resume_session=...)
+            # returned, so choosing "Resume previous flash" meant these
+            # warnings didn't show until the resumed flash had already
+            # finished (or failed), which looked like they'd appeared at
+            # the wrong time entirely.
+            self._clear_startup_loading()
             proceed = await self.yesno(
                 "This is WIP tooling.\n\nIt may eat your cat and/or firmware\nBe warned!",
                 default_no=True,
@@ -1309,6 +1635,22 @@ class EZFlashApp(App):
                         pass
             except Exception:
                 pass
+
+            try:
+                existing = load_session()
+            except Exception:
+                existing = None
+            if existing is not None:
+                tag = await self.menu(
+                    choices=[("resume", "Resume previous flash"), ("new", "Start a new flash")],
+                    message="A previous flash session was detected.\n\nResume or start a new flash?",
+                    cancel_label="Start new",
+                )
+                if tag == "resume":
+                    try:
+                        await self.start_flash_flow(resume_session=existing)
+                    except Exception as e:
+                        await self.msgbox(f"Failed to resume session: {e}")
 
             await self.check_katapult()
             await self.menus()

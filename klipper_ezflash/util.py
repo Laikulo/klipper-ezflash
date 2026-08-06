@@ -114,3 +114,25 @@ def file_sha256(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1 << 16), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def run_captured(cmd: list[str], timeout: int = 10) -> str:
+    """Run `cmd`, merging stderr into stdout, and return the captured text.
+
+    Shared by device.py (lsusb) and detect.py (flashtool.py -q) so both
+    get identical subprocess-invocation behavior instead of two
+    near-identical copies drifting apart — which is exactly what had
+    happened: detect.py's own copy referenced a bare `STDOUT` name that
+    was never imported, a latent NameError waiting to fire the first
+    time detect_can_uuid() actually ran.
+    """
+    try:
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout, text=True)
+        return p.stdout or ""
+    except Exception as e:
+        # Deferred import: fault.py isn't imported elsewhere in this
+        # module, and util.py is imported very early by nearly everything
+        # else — keeping this import local avoids adding a new top-level
+        # dependency edge just for one error path.
+        from .fault import EZFException
+        raise EZFException(f"Command failed: {' '.join(cmd)}", e)

@@ -24,6 +24,7 @@ class SessionData:
     step_index: int = 0
     mcu_arch: Optional[str] = None
     interface: Optional[str] = None
+    interface_speed: Optional[int] = None
     manufacturer: Optional[str] = None
     model: Optional[str] = None
     variant: Optional[str] = None
@@ -43,6 +44,7 @@ class SessionData:
             step_index=int(data.get("step_index", 0)),
             mcu_arch=data.get("mcu_arch"),
             interface=data.get("interface"),
+            interface_speed=data.get("interface_speed"),
             manufacturer=data.get("manufacturer"),
             model=data.get("model"),
             variant=data.get("variant"),

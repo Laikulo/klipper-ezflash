@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 import sys
 import time
 import threading
@@ -10,7 +9,7 @@ from pathlib import Path
 from typing import Callable, Iterable, List, Optional, Tuple
 
 from .fault import EZFException
-from .util import find_tool, find_katapult
+from .util import find_tool, find_katapult, run_captured
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -97,13 +96,27 @@ def _wait_until(condition_fn: Callable[[], bool], timeout: float) -> bool:
 
 
 def wait_for_serial_device(predicate: Callable[[Path], bool], timeout: float = 5.0) -> Optional[Path]:
-    """Block until a /dev/serial/by-id entry matching `predicate` appears
-    (or already exists), or until `timeout` elapses. Returns the matching
-    Path, or None on timeout."""
+    """Block until exactly one /dev/serial/by-id entry matching
+    `predicate` appears (or already exists), or until `timeout` elapses.
+    Returns the matching Path, or None on timeout.
+
+    Raises EZFException if more than one matching device is present at
+    once — the same "can't safely pick one" reasoning as device.py's
+    bootloader-mode detection (verify_bootloader_connected): silently
+    taking the first match risked acting on the wrong board whenever two
+    matching devices were connected simultaneously.
+    """
     result: dict = {}
 
     def condition():
         match = detect_usb_serial(predicate)
+        if len(match) > 1:
+            raw_list = "\n".join(f"  - {p}" for p in match)
+            raise EZFException(
+                f"Multiple matching serial devices detected at once:\n{raw_list}\n\n"
+                "Remove the extra device(s) so only the board you want "
+                "remains connected, then retry."
+            )
         if match:
             result["value"] = match[0]
             return True
@@ -133,9 +146,27 @@ def wait_for_new_serial_device(
     )
 
 
-def wait_for_katapult_device(timeout: float = 5.0) -> Optional[Path]:
-    """Wait for the board to re-enumerate into katapult mode after flashing."""
-    return wait_for_serial_device(lambda p: "katapult_" in p.name, timeout=timeout)
+def wait_for_katapult_device(
+    known: Optional[Iterable[Path]] = None,
+    timeout: float = 5.0,
+) -> Optional[Path]:
+    """Wait for the board to re-enumerate into katapult mode after
+    flashing the bootloader.
+
+    If `known` is given (a snapshot of katapult_ devices taken before the
+    bootloader flash), waits for a device that wasn't in that snapshot —
+    this is what actually matters when another board's katapult device
+    is already sitting connected from an earlier session: without this,
+    that leftover device and the newly-flashed one both match the same
+    predicate and get reported as an ambiguous "multiple devices"
+    situation, even though only the new one is relevant to this flash. If
+    omitted, matches any katapult_ device (only safe when at most one
+    could plausibly be connected at a time).
+    """
+    predicate = lambda p: "katapult_" in p.name
+    if known is not None:
+        return wait_for_new_serial_device(predicate, known, timeout=timeout)
+    return wait_for_serial_device(predicate, timeout=timeout)
 
 
 def wait_for_klipper_device(
@@ -155,12 +186,28 @@ def wait_for_klipper_device(
         return wait_for_new_serial_device(predicate, known, timeout=timeout)
     return wait_for_serial_device(predicate, timeout=timeout)
 
-def _run_cmd(cmd: List[str], timeout: int = 10) -> str:
-    try:
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=STDOUT, timeout=timeout, text=True)
-        return p.stdout or ""
-    except Exception as e:
-        raise EZFException(f"Failed running command: {' '.join(cmd)}", e)
+def list_serial_ports() -> List[Path]:
+    """Return every serial device currently present, for the user to
+    pick from manually.
+
+    Used for UART interfaces: the connection there goes through a
+    generic USB-serial adapter (FTDI, CH340, etc.) wired to the board's
+    UART pins, which has no board-specific "katapult_"/"Klipper_" name
+    to auto-match against the way a board's own native USB port does —
+    there's no way to tell which serial adapter is the right one without
+    asking.
+    """
+    base = Path("/dev/serial/by-id")
+    if base.exists():
+        ports = sorted(base.iterdir())
+        if ports:
+            return ports
+    # Fall back to /dev/ttyUSB*/ttyACM* if by-id is empty — some older
+    # adapters/drivers don't populate by-id at all.
+    dev = Path("/dev")
+    if not dev.exists():
+        return []
+    return sorted(p for p in dev.glob("tty*") if p.name.startswith(("ttyUSB", "ttyACM")))
 
 
 def detect_can_uuid(katapult_path: Optional[Path] = None, interface: str = "can0", timeout: int = 10) -> List[Tuple[str, str]]:
@@ -199,7 +246,7 @@ def detect_can_uuid(katapult_path: Optional[Path] = None, interface: str = "can0
     seen_uuids: set[str] = set()
     
     cmd = [py, str(flashtool), "-i", interface, "-q"]
-    out = _run_cmd(cmd, timeout=timeout)
+    out = run_captured(cmd, timeout=timeout)
 
     for m in detected_uuid_re.finditer(out):
         uuid_val = m.group(1).lower()

@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Iterable
 from enum import Enum
 
 from .kconfig import KConfig, KConfigChoice
@@ -17,11 +17,19 @@ _ARCH_MUNGES = (
     ("rp2040", "rp235x", "Raspberry Pi RP2040", "Raspberry Pi RP2040/RP235x"),
 )
 
-_PROMPT_MUNGES = (("Communication interface", "Communications interface"),)
+
+_COMMS_MUNGES = (
+    "Communication interface",
+    "Communications interface",
+    "Communication Interface",
+    "Communications Interface",
+)
+
 
 class ConfiguratorTarget(Enum):
     KLIPPER = 1
     KATAPULT = 2
+
 
 class Configurator(object):
     def __init__(self, source_path: PathLike, board: BoardDefinition, target: Optional[ConfiguratorTarget] = None):
@@ -30,7 +38,7 @@ class Configurator(object):
         self.kconfig = KConfig(source_path)
         self._board = board
         self._active_interface: Optional[BoardInterfaceDefinition] = None
-        # We always set the below, because tons of stuff is missing otherwise
+        # Enable extra low-level options (required for many configs to work)
         if extra_config := self.kconfig.symbol(
             prompt="Enable extra low-level configuration options"
         ):
@@ -39,34 +47,32 @@ class Configurator(object):
 
     @classmethod
     def katapult(cls, source_path: PathLike, board: BoardDefinition) -> "Configurator":
-        configurator = cls(source_path, board, target=ConfiguratorTarget.KATAPULT)
-        return configurator
+        return cls(source_path, board, target=ConfiguratorTarget.KATAPULT)
 
     @classmethod
     def klipper(cls, source_path: PathLike, board: BoardDefinition) -> "Configurator":
-        configurator = cls(source_path, board, target=ConfiguratorTarget.KLIPPER)
-        return configurator
+        return cls(source_path, board, target=ConfiguratorTarget.KLIPPER)
 
     def _load_from_board(self, board):
         self.set_arch(board.mcu.arch)
         self.set_mcu(board.mcu.mcu)
         if clock := board.mcu.clock:
             self.set_freq(clock)
-        # Note: we don't want to set flash type if we don't have a "stage 2". Which we don't have if there is a bootloader.
-        # RP2040 specifically
+        # Don't set flash type when there's a bootloader (no "stage 2" firmware)
         if flash := board.mcu.flash:
             self.set_flash(flash)
-        if board.status is not None and self._target == ConfiguratorTarget.KATAPULT:
-            self.set_status_leds(board.status)
-        is_rp2040 = "rp2040" in board.mcu.arch.lower()
-        if self._target == ConfiguratorTarget.KLIPPER and is_rp2040:
-            self.set_bootloader_offset()
-        if board.startup_pins is not None and self._target == ConfiguratorTarget.KLIPPER:
-            self.set_startup_pins(board.startup_pins)
+        if self._target == ConfiguratorTarget.KATAPULT:
+            if board.status is not None:
+                self.set_status_leds(board.status)
+        if self._target == ConfiguratorTarget.KLIPPER:
+            if board.startup_pins is not None:
+                self.set_startup_pins(board.startup_pins)
+            if "rp2040" in board.mcu.arch.lower():
+                self.set_bootloader_offset()
 
     def set_status_leds(self, gpio_spec: str):
         if self._target != ConfiguratorTarget.KATAPULT:
-            raise ValueError("Status LEDS are only supported for Katapult")
+            raise ValueError("Status LEDs are only supported for Katapult")
         self.kconfig.symbol(prompt="Enable Status LED").set(True)
         self.kconfig.symbol(prompt="Status LED GPIO Pin").set(gpio_spec)
 
@@ -86,9 +92,7 @@ class Configurator(object):
             for possible_mcu in proc_choice.choices():
                 mcu_prompt = possible_mcu.nodes[0].prompt[0].split(" ")[0]
                 if mcu_prompt.upper() == mcu.upper():
-                    logger.debug(
-                        f"Selected {possible_mcu!r} for MCU specification {mcu}"
-                    )
+                    logger.debug(f"Selected {possible_mcu!r} for MCU specification {mcu}")
                     possible_mcu.set_value(2)
                     return
             raise RuntimeError(f"Unable to find matching MCU {mcu}")
@@ -106,14 +110,13 @@ class Configurator(object):
                 f"Could not set MCU type to {mcu}. Is it supported by this version of klipper?"
             )
 
-
     def set_freq(self, freq):
-        freq_choice: Optional[KConfigChoice] = None
+        freq_choice = None
         for choice in self.kconfig.choices:
             if choice.prompt in ["Processor Speed", "Clock Reference"]:
                 freq_choice = choice
                 break
-        if (not freq_choice) and freq:
+        if not freq_choice and freq:
             raise ValueError("Frequency cannot be set for this MCU")
         # Special case "INTERNAL"
         if freq == "INTERNAL":
@@ -139,21 +142,17 @@ class Configurator(object):
         if flash_choice := self.kconfig.choice(prompt="Flash chip"):
             for possible_flash in flash_choice.choices():
                 if possible_flash.nodes[0].prompt[0].lower().startswith(flash.lower()):
-                    logger.debug(
-                        f"Selected {possible_flash!r} for flash specification {flash}"
-                    )
+                    logger.debug(f"Selected {possible_flash!r} for flash specification {flash}")
                     possible_flash.set_value(2)
                     return
             raise ValueError(
                 f"Could not select flash {flash}, is it supported by this version of klipper?"
             )
-        raise RuntimeError(f"This MCU does not support setting the flash type")
+        raise RuntimeError("This MCU does not support setting the flash type")
 
     def set_bootloader_offset(self):
         """Select the flash offset reserved for Katapult on RP2040, so Klipper's
-        firmware is linked to run after the bootloader rather than at flash
-        offset 0. Only meaningful for Klipper builds — Katapult itself doesn't
-        have this choice, since it IS the bootloader.
+        firmware links after the bootloader rather than at offset 0.
         """
         offset_choice = self.kconfig.choice(
             prompt=("Bootloader offset", "Application start offset")
@@ -169,28 +168,14 @@ class Configurator(object):
     def get_interfaces(self):
         return self._board.interfaces
 
-    # TODO: get_interface - return the currently active interface
-    # TODO: on init, determine which interface is active (from defaults) and set as active here.
+    # TODO: add get_interface() to return the currently active interface
 
     def _get_comms_choice(self):
-        return self.kconfig.choice(
-            prompt=(
-                "Communication interface",
-                "Communications interface",
-                "Communication Interface",
-                "Communications Interface",
-            )
-        )
+        return self.kconfig.choice(prompt=_COMMS_MUNGES)
 
     def supports_canbridge(self):
-        # Can bridge requires both USB and CAN
-        have_can = False
-        have_usb = False
-        for iface in self._board.interfaces:
-            if iface.if_type == "CAN":
-                have_can = True
-            elif iface.if_type == "USB":
-                have_usb = True
+        have_can = any(iface.if_type == "CAN" for iface in self._board.interfaces)
+        have_usb = any(iface.if_type == "USB" for iface in self._board.interfaces)
         if not (have_can and have_usb):
             return False
         for choice in self._get_comms_choice().choices():
@@ -205,31 +190,43 @@ class Configurator(object):
     ):
         raise NotImplementedError("Canbridge is not yet supported")
 
+    def _set_can_pins(self, interface: BoardInterfaceDefinition):
+        """Set CAN RX/TX GPIO pins for the given interface."""
+        if (rx_sym := self.kconfig.symbol(prompt="CAN RX gpio number")) and (
+            tx_sym := self.kconfig.symbol(prompt="CAN TX gpio number")
+        ):
+            rx_sym.set(interface.pins["rx"].removeprefix("gpio"))
+            tx_sym.set(interface.pins["tx"].removeprefix("gpio"))
+        else:
+            raise RuntimeError(
+                f"{interface.if_type} comms specified, but pin configurations could not be found"
+            )
+
+    def _select_can_bus(self, interface: BoardInterfaceDefinition):
+        """Select CAN bus from the communications choice and set pins if needed."""
+        prompts = self._get_comms_choice().prompts()
+        if "CAN bus" in prompts:
+            self._get_comms_choice().select(prompt="CAN bus")
+            self._set_can_pins(interface)
+        else:
+            self._get_comms_choice().select(
+                prompt=f"CAN bus (on {interface.pins['rx']}/{interface.pins['tx']})"
+            )
+
     def set_interface(self, interface: BoardInterfaceDefinition):
-        if interface.if_type == "USB":
+        if_type = interface.if_type
+        comms = self._get_comms_choice()
+
+        if if_type == "USB":
             if not interface.pins:
-                self._get_comms_choice().select(prompt=("USB", "USBSERIAL"))
+                comms.select(prompt=("USB", "USBSERIAL"))
             else:
-                self._get_comms_choice().select(
+                comms.select(
                     prompt=f"USB (on {interface.pins['dm']}/{interface.pins['dp']})"
                 )
-        elif interface.if_type == "CAN":
-            if "CAN bus" in self._get_comms_choice().prompts():
-                self._get_comms_choice().select(prompt="CAN bus")
-                if (rx_sym := self.kconfig.symbol(prompt="CAN RX gpio number")) and (
-                    tx_sym := self.kconfig.symbol(prompt="CAN TX gpio number")
-                ):
-                    rx_sym.set(interface.pins["rx"].removeprefix("gpio"))
-                    tx_sym.set(interface.pins["tx"].removeprefix("gpio"))
-                else:
-                    raise RuntimeError(
-                        "Generic can bus comms specified, but pin configurations could not be found"
-                    )
-            else:
-                self._get_comms_choice().select(
-                    prompt=f"CAN bus (on {interface.pins['rx']}/{interface.pins['tx']})"
-                )
-        elif interface.if_type == "UART":
+        elif if_type in ("CAN", "CAN Bridge"):
+            self._select_can_bus(interface)
+        elif if_type == "UART":
             pin_spec = (
                 f"({interface.pins['rx'].upper()}/{interface.pins['tx'].upper()}|"
                 f"{interface.pins['tx'].upper()}/{interface.pins['rx'].upper()})"
@@ -237,30 +234,26 @@ class Configurator(object):
             target_re = re.compile(
                 f"^(Serial \\(?on )?US?ART[0-9]* (on )?{pin_spec}\\)?"
             )
-            for possible_comms in self._get_comms_choice().choices():
+            for possible_comms in comms.choices():
                 if target_re.match(possible_comms.nodes[0].prompt[0]):
                     possible_comms.set_value(2)
                     return
             raise ValueError(f"Serial not found {interface!r}")
         else:
-            raise ValueError(f"Interface type {interface.if_type} is not supported")
+            raise ValueError(f"Interface type {if_type} is not supported")
         self._active_interface = interface
 
     def set_baud(self, baud):
-        """
-        Set the baud rate of whatever interface is currently configured.
-        Errors if USB is selected.
-        If canbridge is active, then sets the can downstream baudrate
-        :param baud:
-        :return:
+        """Set the baud rate of the currently configured interface.
+        Raises if USB is selected; sets CAN downstream baudrate for CAN Bridge.
         """
         iface = self._active_interface
-        if iface.if_type == "UART":
-            self.kconfig.symbol(prompt="Baud rate for serial port").set(baud)
-        elif iface.if_type == "CAN":
-            self.kconfig.symbol(prompt="CAN bus speed")
-        else:
-            raise ValueError("Attempted to set baud on a non can or uart interface")
+        prompt = {"UART": "Baud rate for serial port", "CAN": "CAN bus speed"}.get(
+            iface.if_type
+        )
+        if not prompt:
+            raise ValueError("Attempted to set baud on a non-CAN or UART interface")
+        self.kconfig.symbol(prompt=prompt).set(baud)
 
     def _header(self):
         return (

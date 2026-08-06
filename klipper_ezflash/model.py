@@ -347,7 +347,8 @@ class BoardDefinition(object):
             interfaces.append(self.uart.as_interface())
         if self.can:
             interfaces.append(self.can.as_interface())
-            # TODO: If CANBridge is supported, add a USB Canbridge psuedo-interface
+            if self.supports_canbridge:
+                interfaces.append(BoardInterfaceDefinition.canbridge(self.can.tx_pin, self.can.rx_pin))
         return interfaces
 
     def pretty(self, indent=0):
@@ -452,6 +453,17 @@ class BoardInterfaceDefinition(object):
         else:
             pins = {}
         return cls("USB", pins)
+
+    @classmethod
+    def canbridge(cls, tx_pin: str, rx_pin: str):
+        """USB-to-CAN bridge pseudo-interface: klipper is reachable over
+        USB, but internally bridges to CAN using these pins, giving it a
+        CAN UUID like a native CAN board would have despite the physical
+        connection being USB. Kept as a distinct if_type ("CANBRIDGE")
+        rather than folded into the plain "CAN" interface, so callers can
+        tell the two apart (e.g. the UI's interface-selection menu, or
+        deciding which flash path applies)."""
+        return cls("CANBRIDGE", {"tx": tx_pin, "rx": rx_pin})
 
     def pretty(self):
         retstr = self.if_type
