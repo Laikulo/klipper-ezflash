@@ -54,7 +54,14 @@ from rich.text import Text
 
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
-from ..util import find_katapult, _KATAPULT_CLONE_URL, find_klipper, file_sha256  # NOTE: confirm this matches your util.py's actual function name
+from ..util import (
+    find_katapult,
+    _KATAPULT_CLONE_URL,
+    find_klipper,
+    file_sha256,
+    check_can_host_state,
+    fix_can_host_state,
+)  # NOTE: confirm this matches your util.py's actual function name
 from ..session import load_session, save_session, clear_session, SessionData
 from .. import device as device_mod
 from .. import flash as flash_mod
@@ -1154,20 +1161,29 @@ class EZFlashApp(App):
                 else:
                     chosen_if_type = ifaces[0].if_type if ifaces else None
 
-                if chosen_if_type == "CANBRIDGE":
-                    # The interface is now visible/selectable (per the
-                    # boards.json supports_canbridge flag), but actually
-                    # configuring for it isn't wired up yet —
-                    # Configurator.set_canbridge() is still an explicit
-                    # NotImplementedError stub. Say so clearly here
-                    # rather than letting the user compile/flash their
-                    # way into that crash deep in the flow.
-                    await self.msgbox(
-                        "USB-to-CAN bridge flashing isn't implemented yet.\n\n"
-                        "Select a different interface for this board for now.",
-                        title="Not yet supported",
-                    )
-                    continue
+                if chosen_if_type in ("CAN", "CANBRIDGE"):
+                    can_settings = InterfaceSettings()
+                    problems = await asyncio.to_thread(check_can_host_state, can_settings.can_speed)
+                    if problems:
+                        problem_list = "\n".join(f"  - {p}" for p in problems)
+                        fix_now = await self.yesno(
+                            f"Found issues with the host's CAN networking setup:\n\n{problem_list}\n\n"
+                            "Fix these now? (sudo password may be required)\n\n"
+                            "You can still flash without fixing these — useful if this board "
+                            "belongs to a different CAN network/printer than the host is "
+                            "currently configured for.",
+                            yes_label="Fix",
+                            no_label="Flash anyway",
+                            default_no=True,
+                        )
+                        if fix_now:
+                            try:
+                                with self.suspend():
+                                    print("\nApplying host CAN networking changes — you may be prompted for your sudo password below.\n")
+                                    fix_can_host_state(can_settings.can_speed)
+                                await self.msgbox("Host CAN networking has been updated.", title="CAN host state")
+                            except Exception as e:
+                                await self.msgbox(f"Failed to fix host CAN networking:\n\n{e}", title="CAN host state")
 
                 # Confirmation step: show the full board summary (including
                 # its interface list) plus the interface just chosen, and
@@ -1198,7 +1214,7 @@ class EZFlashApp(App):
             interface_speed = None
             if chosen_if_type:
                 _settings_for_speed = InterfaceSettings()
-                if chosen_if_type.upper() == "CAN":
+                if chosen_if_type.upper() in ("CAN", "CANBRIDGE"):
                     interface_speed = _settings_for_speed.can_speed
                 elif chosen_if_type.upper() == "UART":
                     interface_speed = _settings_for_speed.uart_baudrate
@@ -1214,7 +1230,17 @@ class EZFlashApp(App):
             )
             save_session(session)
         else:
-            chosen_if_type = session.interface
+            # session.interface is stored lowercased (see below), but
+            # every comparison against chosen_if_type elsewhere in this
+            # method compares it against board.interfaces' if_type values,
+            # which are uppercase ("USB"/"CAN"/"CANBRIDGE"/"UART"). Without
+            # normalizing case here, a resumed session's chosen_if_type
+            # never matches anything, bootloader_iface/firmware_iface both
+            # come back None, set_interface() never gets called at all, and
+            # the Configurator silently falls back to Klipper's own kconfig
+            # default (USB) — exactly the "board gets built for USB mode"
+            # symptom this fixes.
+            chosen_if_type = session.interface.upper() if session.interface else None
 
         if session.step_index >= 4:
             await self.msgbox("A previously completed flash session was found. Starting fresh.")
@@ -1275,10 +1301,31 @@ class EZFlashApp(App):
                             with _capture_output_to_log(screen):
                                 bootloader_config = Configurator.katapult(katapult_path, board=board)
                                 firmware_config = Configurator.klipper(firmware_path, board=board)
-                                chosen_iface = next((i for i in board.interfaces if i.if_type == chosen_if_type), None)
-                                if chosen_iface:
-                                    bootloader_config.set_interface(chosen_iface)
-                                    firmware_config.set_interface(chosen_iface)
+                                # Katapult (the bootloader) always builds for plain USB, even
+                                # when the overall flash is CANBRIDGE — CANBRIDGE is a
+                                # Klipper-firmware comms mode (the running firmware presents
+                                # itself as a USB-CAN adapter), not something the bootloader
+                                # itself needs to know about. The device must still be a
+                                # normal USB DFU/bootloader target to receive the firmware
+                                # flash in the first place.
+                                bootloader_if_type = "USB" if chosen_if_type == "CANBRIDGE" else chosen_if_type
+                                bootloader_iface = next((i for i in board.interfaces if i.if_type == bootloader_if_type), None)
+                                firmware_iface = next((i for i in board.interfaces if i.if_type == chosen_if_type), None)
+                                if bootloader_iface:
+                                    bootloader_config.set_interface(bootloader_iface)
+                                    if bootloader_iface.if_type in ("CAN", "UART") and session.interface_speed:
+                                        bootloader_config.set_interface_speed(session.interface_speed)
+                                elif bootloader_if_type == "USB":
+                                    # No USB interface declared in boards.json (e.g. a
+                                    # CAN-bridge-only board like the Birds Nest CAN) — Katapult
+                                    # still needs a comms mode to build for, so fall back to the
+                                    # kconfig's own default/generic USB choice. This only raises
+                                    # if the kconfig itself has no USB option at all.
+                                    bootloader_config.set_usb_default()
+                                if firmware_iface:
+                                    firmware_config.set_interface(firmware_iface)
+                                    if firmware_iface.if_type in ("CAN", "UART", "CANBRIDGE") and session.interface_speed:
+                                        firmware_config.set_interface_speed(session.interface_speed)
 
                         # --- Step 0: compile bootloader (skip if the
                         # cached output from a previous run is still
@@ -1400,11 +1447,11 @@ class EZFlashApp(App):
                     if session.step_index <= 3:
                         screen.start_step(4)
                         iface = (session.interface or "usb").lower()
-                        is_canbus = "canbus" in iface or "canbridge" in iface
-                        is_can_only = ("can" in iface) and not is_canbus
+                        is_canbridge = "canbridge" in iface
+                        is_can_only = ("can" in iface) and not is_canbridge
                         is_uart = "uart" in iface
 
-                        if is_can_only or is_canbus:
+                        if is_can_only:
                             can_list = await asyncio.to_thread(detect_mod.list_can_interfaces)
                             if not can_list:
                                 raise EZFException("No CAN network interfaces detected on host (e.g. can0).")
@@ -1422,21 +1469,24 @@ class EZFlashApp(App):
                                     raise EZFException("User cancelled CAN interface selection")
                                 chosen_can = can_list[int(tag)]
 
-                            uuids = await asyncio.to_thread(detect_mod.detect_can_uuid, interface=chosen_can)
-                            can_uid = uuids[0]
+                            screen.write(f"Waiting for a katapult-mode device on {chosen_can}....")
+                            result = await asyncio.to_thread(
+                                detect_mod.wait_for_can_uuid, chosen_can, want_type="katapult", timeout=30.0
+                            )
+                            if not result:
+                                raise EZFException(
+                                    f"No katapult-mode CAN device found on {chosen_can} after 30s.\n\n"
+                                    "Make sure the board's bootloader actually flashed and that "
+                                    "it's on this CAN network — already-running/klipper-mode "
+                                    "devices on the bus are ignored on purpose."
+                                )
+                            can_uid, _fw_type = result
+                            screen.write(f"Detected katapult-mode CAN device: UUID {can_uid} on {chosen_can}")
                             argv = flash_mod.build_flashtool_cmd(
                                 None, firmware_bin, "can", can_uid, chosen_can,
                                 interface_speed=session.interface_speed,
                             )
                             await screen.run_argv("Flashing firmware over CAN...", argv)
-                            # NOTE: CANBus (USB-CAN bridge) boards aren't a
-                            # selectable flash path yet — see the TODO in
-                            # model.py about a "USB Canbridge" pseudo-
-                            # interface. Once that lands, it presumably also
-                            # needs a katapult_serial_path (for the bridge's
-                            # own bootloader stage) captured here alongside
-                            # can_uid, same as the USB branch below captures
-                            # both of its identifiers.
                         elif is_uart:
                             # UART goes through a generic USB-to-serial
                             # adapter (FTDI, CH340, etc.) wired to the
@@ -1475,6 +1525,14 @@ class EZFlashApp(App):
                             await screen.run_argv(f"Flashing firmware via UART ({chosen_port})...", argv)
                             screen.write(f"Flashed firmware over UART: {chosen_port}")
                         else:
+                            # Both plain USB and CANBRIDGE reach the firmware
+                            # flash the same way at this point: the board is
+                            # still sitting in Katapult bootloader mode over
+                            # USB serial (Katapult itself was always built
+                            # for plain USB, per the bootloader/firmware
+                            # config split above) — CANBRIDGE-mode comms only
+                            # exist once the CANBRIDGE-configured firmware
+                            # itself is running, which hasn't happened yet.
                             screen.write("Waiting for the device to reboot into Katapult....")
                             katapult_dev = await asyncio.to_thread(
                                 detect_mod.wait_for_katapult_device, known=known_katapult_devs, timeout=10.0
@@ -1486,14 +1544,47 @@ class EZFlashApp(App):
                                     "status LED is flashing if available."
                                 )
                             katapult_serial_path = str(katapult_dev)
-                            known_klipper_devs = await asyncio.to_thread(detect_mod.detect_usb_serial, lambda p: "Klipper_" in p.name)
 
                             argv = flash_mod.build_flashtool_cmd(None, firmware_bin, "serial", katapult_serial_path)
-                            await screen.run_argv("Flashing firmware via Katapult...", argv)
-                            klipper_dev = await asyncio.to_thread(detect_mod.wait_for_klipper_device, known=known_klipper_devs, timeout=10.0)
-                            if not klipper_dev:
-                                raise EZFException("No Klipper device detected after flashing.\n\nPlease check the connection.")
-                            klipper_path = str(klipper_dev)
+
+                            if is_canbridge:
+                                # Snapshot existing CAN interfaces BEFORE
+                                # flashing, so the newly-appeared one (the
+                                # board itself, once it reboots running
+                                # CANBRIDGE-mode firmware and enumerates as
+                                # a USB-CAN adapter) can be told apart from
+                                # any that were already present.
+                                known_can_ifaces = await asyncio.to_thread(detect_mod.list_can_interfaces)
+                                await screen.run_argv("Flashing firmware via Katapult...", argv)
+                                screen.write("Waiting for the board to reboot as a CAN-bridge network interface...")
+                                new_can_iface = await asyncio.to_thread(
+                                    detect_mod.wait_for_new_can_interface, known=known_can_ifaces, timeout=15.0
+                                )
+                                if not new_can_iface:
+                                    raise EZFException(
+                                        "No new CAN network interface appeared after flashing.\n\n"
+                                        "Check the host's CAN networking setup (Main Menu -> "
+                                        "Prepare host OS for CAN) and the board's connection."
+                                    )
+                                screen.write(f"Waiting for the flashed firmware to appear as a klipper-mode CAN device on {new_can_iface}....")
+                                result = await asyncio.to_thread(
+                                    detect_mod.wait_for_can_uuid, new_can_iface, want_type="klipper", timeout=30.0
+                                )
+                                if not result:
+                                    raise EZFException(
+                                        f"No klipper-mode CAN device found on the new interface "
+                                        f"{new_can_iface} after flashing.\n\nThe board may not have "
+                                        "booted into its newly-flashed firmware correctly."
+                                    )
+                                can_uid, _fw_type = result
+                                screen.write(f"Detected klipper-mode CAN-bridge device: UUID {can_uid} on {new_can_iface}")
+                            else:
+                                known_klipper_devs = await asyncio.to_thread(detect_mod.detect_usb_serial, lambda p: "Klipper_" in p.name)
+                                await screen.run_argv("Flashing firmware via Katapult...", argv)
+                                klipper_dev = await asyncio.to_thread(detect_mod.wait_for_klipper_device, known=known_klipper_devs, timeout=10.0)
+                                if not klipper_dev:
+                                    raise EZFException("No Klipper device detected after flashing.\n\nPlease check the connection.")
+                                klipper_path = str(klipper_dev)
                         screen.set_step(4, StepStatus.DONE)
                         session.step_index = 4
                         save_session(session)
@@ -1511,7 +1602,7 @@ class EZFlashApp(App):
                     # means it's guaranteed visible and requires an
                     # explicit OK, instead of possibly flashing by unread.
                     iface = (session.interface or "usb").lower()
-                    is_canbridge = "canbus" in iface or "canbridge" in iface
+                    is_canbridge = "canbridge" in iface
                     is_can_only = ("can" in iface) and not is_canbridge
                     summary_lines = ["Flash flow completed successfully."]
                     if is_canbridge:
@@ -1557,6 +1648,33 @@ class EZFlashApp(App):
 
     # ---- top-level menu loop ------------------------------------------
 
+    async def prepare_can_host_menu(self) -> None:
+        settings = InterfaceSettings()
+        problems = await asyncio.to_thread(check_can_host_state, settings.can_speed)
+        if not problems:
+            await self.msgbox(
+                f"Host CAN networking looks correctly configured for {settings.can_speed} bps.",
+                title="CAN host state",
+            )
+            return
+        problem_list = "\n".join(f"  - {p}" for p in problems)
+        proceed = await self.yesno(
+            f"Found issues with the host's CAN networking setup:\n\n{problem_list}\n\n"
+            "Fix these now? (sudo password may be required)",
+            yes_label="Fix",
+            no_label="Cancel",
+            default_no=True,
+        )
+        if not proceed:
+            return
+        try:
+            with self.suspend():
+                print("\nApplying host CAN networking changes — you may be prompted for your sudo password below.\n")
+                fix_can_host_state(settings.can_speed)
+            await self.msgbox("Host CAN networking has been updated.", title="CAN host state")
+        except Exception as e:
+            await self.msgbox(f"Failed to fix host CAN networking:\n\n{e}", title="CAN host state")
+
     async def menus(self) -> None:
         while True:
             tag = await self.menu(
@@ -1564,6 +1682,7 @@ class EZFlashApp(App):
                     ("boardinfo", "Lookup information about a board"),
                     ("flash", "Flash a board"),
                     ("settings", "Edit the default communication settings"),
+                    ("preparecan", "Prepare host OS for CAN"),
                     ("crash", "Intentionally crash"),
                     ("exit", "Exit"),
                 ],
@@ -1580,6 +1699,8 @@ class EZFlashApp(App):
                     await self.msgbox(board.pretty(), title="Board Info")
             elif tag == "settings":
                 await self.settings_menu()
+            elif tag == "preparecan":
+                await self.prepare_can_host_menu()
             elif tag == "flash":
                 try:
                     await self.start_flash_flow()

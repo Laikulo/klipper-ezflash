@@ -173,45 +173,174 @@ class Configurator(object):
     def _get_comms_choice(self):
         return self.kconfig.choice(prompt=_COMMS_MUNGES)
 
-    def supports_canbridge(self):
-        have_can = any(iface.if_type == "CAN" for iface in self._board.interfaces)
-        have_usb = any(iface.if_type == "USB" for iface in self._board.interfaces)
-        if not (have_can and have_usb):
+    def _get_can_interface_choice(self):
+        """Some MCU families expose CAN pin selection as their own separate
+        top-level 'CAN bus interface' choice, independent of the
+        'Communication interface' choice.
+
+        Confirmed against Klipper's actual src/stm32/Kconfig (and
+        src/atsamd/Kconfig, src/atsam/Kconfig follow the same pattern):
+        this choice (prompt "CAN bus interface") is only visible `if
+        USBCANBUS` — it exists specifically for boards in USB-to-CAN-
+        bridge mode, since the bridge still needs a real physical CAN
+        peripheral/pins underneath (the USB side is just how the host
+        reaches it). Native CAN mode's pin options on these arches
+        (STM32_MMENU_CANBUS_* etc.) live directly in the "Communication
+        interface" choice instead — see _select_can_bus, which tries that
+        first and only falls back to this for arches that don't work that
+        way (RP2040, see _set_can_pins_by_symbol).
+
+        Returns None if this MCU has no such choice.
+        """
+        return self.kconfig.choice(prompt="CAN bus interface")
+
+    def _set_can_pins_by_symbol(self, interface: BoardInterfaceDefinition) -> bool:
+        """RP2040-style: plain 'CAN RX/TX gpio number' int symbols, visible
+        whenever CAN hardware is in use — native or bridge alike, confirmed
+        against Klipper's actual src/rp2040/Kconfig:
+
+            config RPXXXX_CANBUS_GPIO_RX
+                int "CAN RX gpio number" if CANBUS
+                default 4
+            config RPXXXX_CANBUS_GPIO_TX
+                int "CAN TX gpio number" if CANBUS
+                default 5
+
+        Unlike STM32, RP2040 has no separate 'CAN bus interface' choice at
+        all — these symbols are the only mechanism, for both native CAN
+        and USB-to-CAN-bridge modes.
+
+        Returns True if set, False if these symbols don't exist/aren't
+        visible on this MCU (caller should try another mechanism).
+        """
+        rx_sym = self.kconfig.symbol(prompt="CAN RX gpio number")
+        tx_sym = self.kconfig.symbol(prompt="CAN TX gpio number")
+        if not (rx_sym and tx_sym):
             return False
-        for choice in self._get_comms_choice().choices():
-            if choice.nodes[0].prompt[0].lower().startswith("usb to can bus bridge"):
-                return True
-        return False
+        rx_sym.set(interface.pins["rx"].removeprefix("gpio"))
+        tx_sym.set(interface.pins["tx"].removeprefix("gpio"))
+        return True
+
+    def _set_can_interface_pins(self, interface: BoardInterfaceDefinition):
+        """Set this interface's CAN pins by whichever mechanism this MCU's
+        kconfig actually exposes, trying in order:
+          1. A separate 'CAN bus interface' choice (STM32/ATSAM/ATSAMD
+             bridge mode) — select its matching 'CAN bus (on RX/TX)' entry.
+          2. Plain 'CAN RX/TX gpio number' int symbols (RP2040, both
+             native and bridge modes).
+        Raises RuntimeError if neither mechanism is available/matches —
+        this should only happen for a comms choice that already encoded
+        the pins directly in its own prompt (STM32 native CAN's fixed-pin
+        variants), which _select_can_bus selects directly instead of
+        calling this at all.
+        """
+        can_choice = self._get_can_interface_choice()
+        if can_choice is not None:
+            prompts = can_choice.prompts()
+            rx, tx = interface.pins["rx"], interface.pins["tx"]
+            target = f"CAN bus (on {rx}/{tx})"
+            target_rev = f"CAN bus (on {tx}/{rx})"
+            if target in prompts:
+                can_choice.select(prompt=target)
+                return
+            if target_rev in prompts:
+                can_choice.select(prompt=target_rev)
+                return
+            raise RuntimeError(
+                f"'CAN bus interface' choice exists but has no option matching pins {rx}/{tx}"
+            )
+        if self._set_can_pins_by_symbol(interface):
+            return
+        raise RuntimeError(
+            f"{interface.if_type} comms specified, but no CAN pin configuration mechanism could be found"
+        )
+
+    def set_usb_default(self):
+        """Select plain/default USB comms, with no board-specific pins.
+
+        Fallback for boards that don't declare their own USB interface in
+        boards.json (e.g. CAN-bridge-only boards like the Birds Nest CAN,
+        which are never meant to be used as a USB-serial node) — Katapult
+        still needs *some* comms mode to build for regardless of what
+        interface the firmware itself ends up using, since the device must
+        still be reachable as a normal USB DFU/bootloader target to
+        receive the firmware flash in the first place. Raises ValueError
+        (from KConfigChoice.select) only if this arch's kconfig genuinely
+        has no USB comms option at all.
+        """
+        self._get_comms_choice().select(prompt=("USB", "USBSERIAL"))
 
     def set_canbridge(
         self,
         can_interface: BoardInterfaceDefinition,
         usb_interface: BoardInterfaceDefinition,
     ):
-        raise NotImplementedError("Canbridge is not yet supported")
-
-    def _set_can_pins(self, interface: BoardInterfaceDefinition):
-        """Set CAN RX/TX GPIO pins for the given interface."""
-        if (rx_sym := self.kconfig.symbol(prompt="CAN RX gpio number")) and (
-            tx_sym := self.kconfig.symbol(prompt="CAN TX gpio number")
-        ):
-            rx_sym.set(interface.pins["rx"].removeprefix("gpio"))
-            tx_sym.set(interface.pins["tx"].removeprefix("gpio"))
+        """Select a CAN bridge interface, and set the CAN RX/TX pins for the given interface."""
+        comms = self._get_comms_choice()
+        bare = next(
+            (c for c in comms.choices() if c.nodes[0].prompt[0].strip().lower() == "usb to can bus bridge"),
+            None,
+        )
+        if bare is not None:
+            bare.set_value(2)
         else:
-            raise RuntimeError(
-                f"{interface.if_type} comms specified, but pin configurations could not be found"
-            )
+            candidates = [
+                c for c in comms.choices()
+                if c.nodes[0].prompt[0].lower().startswith("usb to can bus bridge")
+            ]
+            if not candidates:
+                raise ValueError("No 'USB to CAN bus bridge' option found in comms choice")
+            if len(candidates) == 1:
+                candidates[0].set_value(2)
+            else:
+                if usb_interface is None:
+                    raise ValueError(
+                        "Multiple 'USB to CAN bus bridge' options found, but no USB "
+                        "interface/pins are available to tell which one to use — "
+                        "this board needs a 'usb' entry in boards.json to disambiguate."
+                    )
+                dm = usb_interface.pins.get("dm", "")
+                dp = usb_interface.pins.get("dp", "")
+                pin_re = re.compile(
+                    f"usb on ({re.escape(dm)}/{re.escape(dp)}|{re.escape(dp)}/{re.escape(dm)})",
+                    flags=re.IGNORECASE,
+                )
+                for choice in candidates:
+                    if pin_re.search(choice.nodes[0].prompt[0]):
+                        choice.set_value(2)
+                        break
+                else:
+                    raise ValueError(
+                        f"Could not find 'USB to CAN bus bridge' option matching USB pins {dm}/{dp}"
+                    )
+        # A bridge choice never encodes CAN pins directly (confirmed on
+        # both STM32 — "USB to CAN bus bridge (USB on PA11/PA12)" only
+        # encodes USB pins — and RP2040 — "USB to CAN bus bridge" is bare,
+        # no pins at all). CAN pins always need a separate step for bridge
+        # mode; _set_can_interface_pins picks whichever mechanism this
+        # MCU actually has.
+        self._set_can_interface_pins(can_interface)
 
     def _select_can_bus(self, interface: BoardInterfaceDefinition):
-        """Select CAN bus from the communications choice and set pins if needed."""
-        prompts = self._get_comms_choice().prompts()
-        if "CAN bus" in prompts:
-            self._get_comms_choice().select(prompt="CAN bus")
-            self._set_can_pins(interface)
-        else:
-            self._get_comms_choice().select(
-                prompt=f"CAN bus (on {interface.pins['rx']}/{interface.pins['tx']})"
-            )
+        """Select CAN bus, preferring a fixed-pin comms choice entry if one
+        exists (STM32/ATSAM/ATSAMD native CAN's actual mechanism — the
+        selection itself IS the pin configuration, nothing more to set),
+        falling back to a bare 'CAN bus' comms entry plus a separate
+        pin-setting step otherwise (RP2040's mechanism).
+        """
+        comms = self._get_comms_choice()
+        prompts = comms.prompts()
+        rx, tx = interface.pins["rx"], interface.pins["tx"]
+        fixed = f"CAN bus (on {rx}/{tx})"
+        fixed_rev = f"CAN bus (on {tx}/{rx})"
+        if fixed in prompts:
+            comms.select(prompt=fixed)
+            return
+        if fixed_rev in prompts:
+            comms.select(prompt=fixed_rev)
+            return
+        comms.select(prompt="CAN bus")
+        self._set_can_interface_pins(interface)
 
     def set_interface(self, interface: BoardInterfaceDefinition):
         if_type = interface.if_type
@@ -224,8 +353,15 @@ class Configurator(object):
                 comms.select(
                     prompt=f"USB (on {interface.pins['dm']}/{interface.pins['dp']})"
                 )
-        elif if_type in ("CAN", "CAN Bridge"):
+        elif if_type == "CAN":
             self._select_can_bus(interface)
+        elif if_type == "CANBRIDGE":
+            usb_interface = next(
+                (i for i in self._board.interfaces if i.if_type == "USB"), None
+            )
+            self.set_canbridge(interface, usb_interface)
+            self._active_interface = interface
+            return
         elif if_type == "UART":
             pin_spec = (
                 f"({interface.pins['rx'].upper()}/{interface.pins['tx'].upper()}|"
@@ -243,17 +379,24 @@ class Configurator(object):
             raise ValueError(f"Interface type {if_type} is not supported")
         self._active_interface = interface
 
-    def set_baud(self, baud):
-        """Set the baud rate of the currently configured interface.
-        Raises if USB is selected; sets CAN downstream baudrate for CAN Bridge.
+    def set_interface_speed(self, speed):
+        """Set the speed/baud rate of the currently configured interface:
+        UART baud rate, or CAN bus bitrate — including CANBRIDGE, which
+        still needs the compiled-in CAN bus speed symbol set to match the
+        physical bus even though it also gets a host-side runtime bitrate
+        via systemd-networkd (see check_can_host_state/fix_can_host_state
+        in util.py). Raises if the currently configured interface is USB,
+        which has no such setting.
         """
         iface = self._active_interface
-        prompt = {"UART": "Baud rate for serial port", "CAN": "CAN bus speed"}.get(
-            iface.if_type
-        )
+        prompt = {
+            "UART": "Baud rate for serial port",
+            "CAN": "CAN bus speed",
+            "CANBRIDGE": "CAN bus speed",
+        }.get(iface.if_type)
         if not prompt:
-            raise ValueError("Attempted to set baud on a non-CAN or UART interface")
-        self.kconfig.symbol(prompt=prompt).set(baud)
+            raise ValueError("Attempted to set interface speed on a non-CAN/CANBRIDGE/UART interface")
+        self.kconfig.symbol(prompt=prompt).set(str(speed))
 
     def _header(self):
         return (

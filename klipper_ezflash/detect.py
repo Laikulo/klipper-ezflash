@@ -290,3 +290,100 @@ def list_can_interfaces() -> List[str]:
         if name.startswith("can") or name.startswith("vcan") or name.startswith("slcan"):
             out.append(name)
     return sorted(out)
+
+
+def wait_for_new_can_interface(known: Iterable[str], timeout: float = 15.0) -> Optional[str]:
+    """Poll for a CAN network interface that is not already present in
+    `known` (a snapshot taken before the flash was triggered).
+
+    Used to identify a CAN-bridge board's own interface once it reboots
+    into CANBRIDGE-mode firmware and enumerates as a new USB-CAN adapter
+    — there's no serial-device equivalent to match against here, since
+    the board no longer exposes a USB-serial device at all in this mode.
+
+    Unlike wait_for_serial_device, this polls list_can_interfaces()
+    directly on a short interval rather than watching via inotify —
+    /sys/class/net doesn't get the same treatment as /dev/serial/by-id
+    elsewhere in this file, and a new CAN interface appearing is a
+    slower, rarer event where a plain poll loop is simple and sufficient.
+
+    Raises EZFException if more than one new interface appears at once,
+    for the same reason as wait_for_serial_device: silently picking one
+    risks acting on the wrong device.
+    """
+    known_set = set(known)
+    deadline = time.monotonic() + timeout
+    while True:
+        current = list_can_interfaces()
+        new = [c for c in current if c not in known_set]
+        if len(new) > 1:
+            raw_list = "\n".join(f"  - {c}" for c in new)
+            raise EZFException(
+                f"Multiple new CAN interfaces appeared at once:\n{raw_list}\n\n"
+                "Remove any other newly-connected CAN-bridge devices so only "
+                "the board you're flashing is present, then retry."
+            )
+        if new:
+            return new[0]
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.5)
+
+
+def wait_for_can_uuid(
+    interface: str,
+    want_type: str = "katapult",
+    katapult_path: Optional[Path] = None,
+    timeout: float = 30.0,
+    query_timeout: float = 8.0,
+) -> Optional[Tuple[str, str]]:
+    """Poll a CAN interface for a device reporting the given firmware type
+    ("katapult" or "klipper"), ignoring any other-typed entries entirely.
+
+    This is what stops a board of the wrong type — an already-in-service
+    klipper-mode board still sharing the same physical CAN bus while
+    waiting for a bootloader, or vice versa, a device that hasn't
+    finished rebooting into its newly-flashed firmware yet while waiting
+    to confirm the flash — from ever being mistaken for the device
+    actually being waited on right now. detect_can_uuid() itself returns
+    every UUID it sees regardless of firmware type, so a caller that just
+    took the first result could end up targeting/confirming the wrong
+    device or the wrong lifecycle stage of the right device.
+
+    Each individual flashtool.py query gets `query_timeout` seconds to
+    actually scan the bus and respond — CAN node discovery isn't
+    instant. An earlier version of this function tied the per-query
+    timeout to a short poll interval (2s), which meant flashtool.py was
+    being killed before it could ever report a UUID even though the
+    device was genuinely there and a longer manual query found it fine.
+    `timeout` is the overall budget across however many such queries fit
+    within it; there's no separate sleep between attempts since each
+    attempt's own runtime already paces the loop.
+
+    Returns None on timeout (the caller should report "not found", not
+    silently fall back to a wrong-typed entry). Raises EZFException if
+    more than one matching-typed device is present at once — the same
+    "can't safely pick one" reasoning as wait_for_serial_device.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        try:
+            found = detect_can_uuid(
+                katapult_path=katapult_path, interface=interface,
+                timeout=max(1, int(min(query_timeout, remaining))),
+            )
+        except EZFException:
+            found = []
+        matching = [(u, fw) for u, fw in found if fw == want_type]
+        if len(matching) > 1:
+            raw_list = "\n".join(f"  - {u}" for u, _ in matching)
+            raise EZFException(
+                f"Multiple {want_type}-mode CAN devices detected at once:\n{raw_list}\n\n"
+                "Remove the extra device(s) so only the board you want is present, then retry."
+            )
+        if matching:
+            return matching[0]
+

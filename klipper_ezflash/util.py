@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import subprocess
 import shutil
 from functools import cache
@@ -136,3 +137,158 @@ def run_captured(cmd: list[str], timeout: int = 10) -> str:
         # dependency edge just for one error path.
         from .fault import EZFException
         raise EZFException(f"Command failed: {' '.join(cmd)}", e)
+
+
+# --------------------------------------------------------------------------
+# CAN host networking state — see https://canbus.esoterical.online/Getting_Started.html
+# --------------------------------------------------------------------------
+
+_CAN_UDEV_RULE_PATH = Path("/etc/udev/rules.d/10-can.rules")
+_CAN_UDEV_RULE_CONTENT = 'SUBSYSTEM=="net", ACTION=="change|add", KERNEL=="can*"  ATTR{tx_queue_len}="128"\n'
+_CAN_NETWORK_PATH = Path("/etc/systemd/network/25-can.network")
+
+
+def _can_network_content(can_speed: int) -> str:
+    return (
+        "[Match]\n"
+        "Name=can*\n"
+        "\n"
+        "[CAN]\n"
+        f"BitRate={can_speed}\n"
+        "\n"
+        "[Link]\n"
+        "RequiredForOnline=no\n"
+    )
+
+
+def _run_sudo(args: list[str], description: str) -> None:
+    """Run args under sudo. Raises EZFException (labeled with description)
+    on failure, so callers get a readable error instead of a bare
+    CalledProcessError.
+    """
+    from .fault import EZFException
+    try:
+        subprocess.run(["sudo"] + args, capture_output=True, text=True, timeout=30, check=True)
+    except subprocess.CalledProcessError as e:
+        raise EZFException(f"{description} failed: {e.stderr or e}")
+    except subprocess.TimeoutExpired:
+        raise EZFException(f"{description} timed out")
+
+
+def check_can_host_state(can_speed: int) -> list[str]:
+    """Read-only check of the host's CAN networking setup against the
+    steps at https://canbus.esoterical.online/Getting_Started.html.
+    Returns a list of human-readable problems found — an empty list
+    means everything already matches, nothing needs fixing.
+    """
+    problems: list[str] = []
+
+    try:
+        enabled = subprocess.run(
+            ["systemctl", "is-enabled", "systemd-networkd"], capture_output=True, text=True
+        ).stdout.strip()
+        if enabled != "enabled":
+            problems.append("systemd-networkd service is not enabled")
+        active = subprocess.run(
+            ["systemctl", "is-active", "systemd-networkd"], capture_output=True, text=True
+        ).stdout.strip()
+        if active != "active":
+            problems.append("systemd-networkd service is not running")
+    except Exception as e:
+        problems.append(f"Could not check systemd-networkd status: {e}")
+
+    try:
+        wait_enabled = subprocess.run(
+            ["systemctl", "is-enabled", "systemd-networkd-wait-online.service"],
+            capture_output=True, text=True,
+        ).stdout.strip()
+        if wait_enabled not in ("disabled", "masked", ""):
+            problems.append(
+                "systemd-networkd-wait-online.service is not disabled (can cause a long boot delay)"
+            )
+    except Exception as e:
+        problems.append(f"Could not check systemd-networkd-wait-online status: {e}")
+
+    if not _CAN_UDEV_RULE_PATH.exists():
+        problems.append(f"{_CAN_UDEV_RULE_PATH} is missing (CAN tx_queue_len won't be set to 128)")
+    else:
+        try:
+            if _CAN_UDEV_RULE_PATH.read_text() != _CAN_UDEV_RULE_CONTENT:
+                problems.append(f"{_CAN_UDEV_RULE_PATH} exists but doesn't match the expected rule")
+        except OSError as e:
+            problems.append(f"Could not read {_CAN_UDEV_RULE_PATH}: {e}")
+
+    if not _CAN_NETWORK_PATH.exists():
+        problems.append(f"{_CAN_NETWORK_PATH} is missing (CAN bit rate won't be configured)")
+    else:
+        try:
+            if _CAN_NETWORK_PATH.read_text() != _can_network_content(can_speed):
+                problems.append(
+                    f"{_CAN_NETWORK_PATH} exists but doesn't match the configured speed ({can_speed} bps)"
+                )
+        except OSError as e:
+            problems.append(f"Could not read {_CAN_NETWORK_PATH}: {e}")
+
+    # Live interfaces already up may be running at a different speed than
+    # configured — distinct from the config files being wrong, since an
+    # already-running network might belong to a different printer/setup
+    # entirely and shouldn't be silently assumed broken.
+    try:
+        netdir = Path("/sys/class/net")
+        if netdir.exists():
+            for p in netdir.iterdir():
+                if not p.name.startswith("can"):
+                    continue
+                out = subprocess.run(
+                    ["ip", "-details", "link", "show", p.name], capture_output=True, text=True
+                ).stdout
+                m = re.search(r"bitrate\s+(\d+)", out)
+                if m and int(m.group(1)) != can_speed:
+                    problems.append(
+                        f"Interface {p.name} is currently running at {m.group(1)} bps, "
+                        f"not the configured {can_speed} bps"
+                    )
+    except Exception:
+        pass  # best-effort — a failure here shouldn't block the rest of the check
+
+    return problems
+
+
+def fix_can_host_state(can_speed: int) -> None:
+    """Apply fixes for whatever check_can_host_state() found wrong.
+    Idempotent — safe to call even when some/all of this is already
+    correct. Raises EZFException on the first command that fails.
+    """
+    if subprocess.run(
+        ["systemctl", "is-enabled", "--quiet", "systemd-networkd"]
+    ).returncode != 0:
+        _run_sudo(["systemctl", "enable", "systemd-networkd"], "Enabling systemd-networkd")
+    if subprocess.run(
+        ["systemctl", "is-active", "--quiet", "systemd-networkd"]
+    ).returncode != 0:
+        _run_sudo(["systemctl", "start", "systemd-networkd"], "Starting systemd-networkd")
+
+    if subprocess.run(
+        ["systemctl", "is-enabled", "--quiet", "systemd-networkd-wait-online.service"]
+    ).returncode == 0:
+        _run_sudo(
+            ["systemctl", "disable", "systemd-networkd-wait-online.service"],
+            "Disabling systemd-networkd-wait-online",
+        )
+
+    if not _CAN_UDEV_RULE_PATH.exists() or _CAN_UDEV_RULE_PATH.read_text() != _CAN_UDEV_RULE_CONTENT:
+        _run_sudo(
+            ["sh", "-c", f"cat > {_CAN_UDEV_RULE_PATH} <<'EOF'\n{_CAN_UDEV_RULE_CONTENT}EOF"],
+            "Writing CAN udev rule",
+        )
+
+    network_content = _can_network_content(can_speed)
+    if not _CAN_NETWORK_PATH.exists() or _CAN_NETWORK_PATH.read_text() != network_content:
+        _run_sudo(
+            ["sh", "-c", f"cat > {_CAN_NETWORK_PATH} <<'EOF'\n{network_content}EOF"],
+            "Writing CAN network config",
+        )
+
+    _run_sudo(["udevadm", "control", "--reload-rules"], "Reloading udev rules")
+    _run_sudo(["udevadm", "trigger"], "Triggering udev")
+    _run_sudo(["networkctl", "reload"], "Reloading systemd-networkd config")
