@@ -485,8 +485,8 @@
   },
   "MMU Boards": {
     "BigTreeTech": {
-      "MMB": {
-        "MMB v1.0 and V1.1": {
+      "MMB CAN": {
+        "MMB CAN v1.0 and V1.1": {
           "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/MMB%20CAN%20V1.0.html",
           "mcu": {
@@ -497,7 +497,7 @@
           "can": "PB0/PB1",
           "usb": "PA11/PA12"
         },
-        "MMB v2.0": {
+        "MMB CAN v2.0": {
           "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/MMB%20CAN%20V2.0.html",
           "mcu": {
@@ -589,7 +589,8 @@
             "rx": "gpio1"
           },
           "usb": {},
-          "status": "gpio17"
+          "status": "!gpio17",
+          "startup_pins": "!gpio17"
         }
       },
       "FLY MMU": {
