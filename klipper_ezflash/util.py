@@ -197,18 +197,6 @@ def check_can_host_state(can_speed: int) -> list[str]:
     except Exception as e:
         problems.append(f"Could not check systemd-networkd status: {e}")
 
-    try:
-        wait_enabled = subprocess.run(
-            ["systemctl", "is-enabled", "systemd-networkd-wait-online.service"],
-            capture_output=True, text=True,
-        ).stdout.strip()
-        if wait_enabled not in ("disabled", "masked", ""):
-            problems.append(
-                "systemd-networkd-wait-online.service is not disabled (can cause a long boot delay)"
-            )
-    except Exception as e:
-        problems.append(f"Could not check systemd-networkd-wait-online status: {e}")
-
     if not _CAN_UDEV_RULE_PATH.exists():
         problems.append(f"{_CAN_UDEV_RULE_PATH} is missing (CAN tx_queue_len won't be set to 128)")
     else:
