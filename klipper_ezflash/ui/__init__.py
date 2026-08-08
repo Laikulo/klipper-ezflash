@@ -1625,9 +1625,9 @@ class EZFlashApp(App):
                     # Putting it in the completion dialog's own message
                     # means it's guaranteed visible and requires an
                     # explicit OK, instead of possibly flashing by unread.
-                    iface = (session.interface or "usb").lower()
-                    is_canbridge = "canbridge" in iface
-                    is_can_only = ("can" in iface) and not is_canbridge
+                    iface = (session.interface or "USB")
+                    is_canbridge = "USB to CAN Bridge" in iface
+                    is_can_only = ("CAN" in iface) and not is_canbridge
                     summary_lines = ["Flash flow completed successfully."]
                     if is_canbridge:
                         if katapult_serial_path:
