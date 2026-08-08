@@ -1,6 +1,6 @@
 {
   "Mainboards": {
-    "BTT": {
+    "BigTreeTech": {
       "Kraken": {
         "Kraken": {
           "boot_method": "boot+reset",
@@ -485,7 +485,7 @@
     }
   },
   "MMU Boards": {
-    "BTT": {
+    "BigTreeTech": {
       "MMB": {
         "MMB v1.0 and V1.1": {
           "boot_method": "boot+reset",
@@ -614,7 +614,7 @@
     }
   },
   "Toolheads": {
-    "BTT": {
+    "BigTreeTech": {
       "EBB36": {
         "EBB36 v1.2": {
           "boot_method": "boot+reset",
@@ -1099,7 +1099,7 @@
         }
       }
     },
-    "BTT":{
+    "BigTreeTech":{
       "MMB Cubic": {
         "MMB Cubic v1.0": {
           "boot_method": "boot+reset",
