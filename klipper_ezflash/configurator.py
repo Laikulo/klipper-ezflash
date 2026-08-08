@@ -375,8 +375,9 @@ class Configurator(object):
             for possible_comms in comms.choices():
                 if target_re.match(possible_comms.nodes[0].prompt[0]):
                     possible_comms.set_value(2)
-                    return
-            raise ValueError(f"Serial not found {interface!r}")
+                    break
+            else:
+                raise ValueError(f"Serial not found {interface!r}")
         else:
             raise ValueError(f"Interface type {if_type} is not supported")
         self._active_interface = interface
