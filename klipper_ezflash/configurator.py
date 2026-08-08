@@ -192,7 +192,10 @@ class Configurator(object):
 
         Returns None if this MCU has no such choice.
         """
-        return self.kconfig.choice(prompt="CAN bus interface")
+        try:
+            return self.kconfig.choice(prompt="CAN bus interface")
+        except KeyError:
+            return None
 
     def _set_can_pins_by_symbol(self, interface: BoardInterfaceDefinition) -> bool:
         """RP2040-style: plain 'CAN RX/TX gpio number' int symbols, visible
@@ -276,49 +279,48 @@ class Configurator(object):
         usb_interface: BoardInterfaceDefinition,
     ):
         """Select a CAN bridge interface, and set the CAN RX/TX pins for the given interface."""
+        # Enable USBCANBUS first — makes "CAN bus interface" choice visible on STM32/ATSAMD
+        # and RPXXXX_CANBUS_GPIO_RX/TX symbols visible on RP2040.
+        usb_canbus = self.kconfig.symbol(prompt="USBCANBUS")
+        if usb_canbus:
+            usb_canbus.set(True)
+
         comms = self._get_comms_choice()
-        bare = next(
-            (c for c in comms.choices() if c.nodes[0].prompt[0].strip().lower() == "usb to can bus bridge"),
-            None,
-        )
-        if bare is not None:
-            bare.set_value(2)
+
+        # Find candidates matching "USB to CAN bus bridge" (with or without USB pin suffix).
+        candidates = [
+            c for c in comms.choices()
+            if c.nodes[0].prompt[0].lower().startswith("usb to can bus bridge")
+        ]
+        if not candidates:
+            raise ValueError(
+                f"No 'USB to CAN bus bridge' option found in {comms.prompt}"
+            )
+
+        if len(candidates) == 1:
+            candidates[0].set_value(2)
         else:
-            candidates = [
-                c for c in comms.choices()
-                if c.nodes[0].prompt[0].lower().startswith("usb to can bus bridge")
-            ]
-            if not candidates:
-                raise ValueError("No 'USB to CAN bus bridge' option found in comms choice")
-            if len(candidates) == 1:
-                candidates[0].set_value(2)
-            else:
-                if usb_interface is None:
-                    raise ValueError(
-                        "Multiple 'USB to CAN bus bridge' options found, but no USB "
-                        "interface/pins are available to tell which one to use — "
-                        "this board needs a 'usb' entry in boards.json to disambiguate."
-                    )
-                dm = usb_interface.pins.get("dm", "")
-                dp = usb_interface.pins.get("dp", "")
-                pin_re = re.compile(
-                    f"usb on ({re.escape(dm)}/{re.escape(dp)}|{re.escape(dp)}/{re.escape(dm)})",
-                    flags=re.IGNORECASE,
+            # Multiple candidates — disambiguate using USB pin specs from boards.json.
+            dm = usb_interface.pins.get("dm", "") if usb_interface else ""
+            dp = usb_interface.pins.get("dp", "") if usb_interface else ""
+            if not (dm and dp):
+                raise ValueError(
+                    "Multiple 'USB to CAN bus bridge' options found, but no USB pins "
+                    "are available to disambiguate — this board needs a 'usb' entry in boards.json."
                 )
-                for choice in candidates:
-                    if pin_re.search(choice.nodes[0].prompt[0]):
-                        choice.set_value(2)
-                        break
-                else:
-                    raise ValueError(
-                        f"Could not find 'USB to CAN bus bridge' option matching USB pins {dm}/{dp}"
-                    )
-        # A bridge choice never encodes CAN pins directly (confirmed on
-        # both STM32 — "USB to CAN bus bridge (USB on PA11/PA12)" only
-        # encodes USB pins — and RP2040 — "USB to CAN bus bridge" is bare,
-        # no pins at all). CAN pins always need a separate step for bridge
-        # mode; _set_can_interface_pins picks whichever mechanism this
-        # MCU actually has.
+            pin_re = re.compile(
+                f"usb on ({re.escape(dm)}/{re.escape(dp)}|{re.escape(dp)}/{re.escape(dm)})",
+                flags=re.IGNORECASE,
+            )
+            for choice in candidates:
+                if pin_re.search(choice.nodes[0].prompt[0]):
+                    choice.set_value(2)
+                    break
+            else:
+                raise ValueError(
+                    f"Could not find 'USB to CAN bus bridge' option matching USB pins {dm}/{dp}"
+                )
+
         self._set_can_interface_pins(can_interface)
 
     def _select_can_bus(self, interface: BoardInterfaceDefinition):
