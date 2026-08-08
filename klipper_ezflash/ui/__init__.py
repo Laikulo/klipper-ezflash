@@ -1470,10 +1470,10 @@ class EZFlashApp(App):
 
                     if session.step_index <= 3:
                         screen.start_step(4)
-                        iface = (session.interface or "usb").lower()
-                        is_canbridge = "canbridge" in iface
-                        is_can_only = ("can" in iface) and not is_canbridge
-                        is_uart = "uart" in iface
+                        iface = (session.interface or "USB")
+                        is_canbridge = "USB to CAN Bridge" in iface
+                        is_can_only = ("CAN" in iface) and not is_canbridge
+                        is_uart = "UART" in iface
 
                         if is_can_only:
                             can_list = await asyncio.to_thread(detect_mod.list_can_interfaces)
