@@ -1274,11 +1274,28 @@ class EZFlashApp(App):
 
         screen = FlashFlowScreen(self.FLASH_STEP_NAMES)
         await self.push_screen(screen)
+        # Sub-step-4 progress that must survive a "Retry" (the outer
+        # except/continue below) without being redone: once the firmware
+        # flash itself has actually succeeded, a retry should only retry
+        # whatever DETECTION step failed afterward (like if there are
+        # mutiple CAN devices on the bus after flashing USB to CAN Bridge).
+        # At that point, the board is no longer reachable in katapult mode
+        # at all and a repeat "Waiting for the device to reboot into
+        # Katapult..." can only ever time out. Declared once here (not
+        # reset per while-loop iteration like the rest of the per-attempt
+        # state below) so it persists exactly across in-process retries of
+        # THIS flash attempt, and naturally resets for any genuinely new
+        # start_flash_flow() call.
+        firmware_flashed = False
+        known_klipper_devs: Optional[list] = None
+        known_can_ifaces: Optional[list] = None
+        detected_can_iface: Optional[str] = None
+        katapult_serial_path: Optional[str] = None
         try:
             while True:
                 try:
                     bootloader_bin = firmware_bin = None
-                    katapult_serial_path = klipper_path = can_uid = None
+                    klipper_path = can_uid = None
                     known_katapult_devs: Optional[list] = None
 
                     if session.step_index <= 0:
@@ -1557,54 +1574,59 @@ class EZFlashApp(App):
                             # config split above) — USB to CAN Bridge-mode comms only
                             # exist once the USB to CAN Bridge-configured firmware
                             # itself is running, which hasn't happened yet.
-                            screen.write("Waiting for the device to reboot into Katapult....")
-                            katapult_dev = await asyncio.to_thread(
-                                detect_mod.wait_for_katapult_device, known=known_katapult_devs, timeout=10.0
-                            )
-                            if not katapult_dev:
-                                raise EZFException(
-                                    "No Katapult serial device found after flashing!\n\n"
-                                    "Please ensure the reset jumpers are removed and that the "
-                                    "status LED is flashing if available."
+                            if not firmware_flashed:
+                                screen.write("Waiting for the device to reboot into Katapult....")
+                                katapult_dev = await asyncio.to_thread(
+                                    detect_mod.wait_for_katapult_device, known=known_katapult_devs, timeout=10.0
                                 )
-                            katapult_serial_path = str(katapult_dev)
+                                if not katapult_dev:
+                                    raise EZFException(
+                                        "No Katapult serial device found after flashing!\n\n"
+                                        "Please ensure the reset jumpers are removed and that the "
+                                        "status LED is flashing if available."
+                                    )
+                                katapult_serial_path = str(katapult_dev)
 
-                            argv = flash_mod.build_flashtool_cmd(None, firmware_bin, "serial", katapult_serial_path)
+                                argv = flash_mod.build_flashtool_cmd(None, firmware_bin, "serial", katapult_serial_path)
+
+                                if is_canbridge:
+                                    # Snapshot existing CAN interfaces BEFORE
+                                    # flashing, so the newly-appeared one (the
+                                    # board itself, once it reboots running
+                                    # USB to CAN Bridge-mode firmware and enumerates as
+                                    # a USB-CAN adapter) can be told apart from
+                                    # any that were already present.
+                                    known_can_ifaces = await asyncio.to_thread(detect_mod.list_can_interfaces)
+                                else:
+                                    known_klipper_devs = await asyncio.to_thread(detect_mod.detect_usb_serial, lambda p: "Klipper_" in p.name)
+                                await screen.run_argv("Flashing firmware via Katapult...", argv)
+                                firmware_flashed = True
 
                             if is_canbridge:
-                                # Snapshot existing CAN interfaces BEFORE
-                                # flashing, so the newly-appeared one (the
-                                # board itself, once it reboots running
-                                # USB to CAN Bridge-mode firmware and enumerates as
-                                # a USB-CAN adapter) can be told apart from
-                                # any that were already present.
-                                known_can_ifaces = await asyncio.to_thread(detect_mod.list_can_interfaces)
-                                await screen.run_argv("Flashing firmware via Katapult...", argv)
-                                screen.write("Waiting for the board to reboot as a CAN-bridge network interface...")
-                                new_can_iface = await asyncio.to_thread(
-                                    detect_mod.wait_for_new_can_interface, known=known_can_ifaces, timeout=15.0
-                                )
-                                if not new_can_iface:
-                                    raise EZFException(
-                                        "No new CAN network interface appeared after flashing.\n\n"
-                                        "Check the host's CAN networking setup (Main Menu -> "
-                                        "Prepare host OS for CAN) and the board's connection."
+                                if detected_can_iface is None:
+                                    screen.write("Waiting for the board to reboot as a CAN-bridge network interface...")
+                                    detected_can_iface = await asyncio.to_thread(
+                                        detect_mod.wait_for_new_can_interface, known=known_can_ifaces, timeout=15.0
                                     )
-                                screen.write(f"Waiting for the flashed firmware to appear as a klipper-mode CAN device on {new_can_iface}....")
+                                    if not detected_can_iface:
+                                        raise EZFException(
+                                            "No new CAN network interface appeared after flashing.\n\n"
+                                            "Check the host's CAN networking setup (Main Menu -> "
+                                            "Prepare host OS for CAN) and the board's connection."
+                                        )
+                                screen.write(f"Waiting for the flashed firmware to appear as a klipper-mode CAN device on {detected_can_iface}....")
                                 result = await asyncio.to_thread(
-                                    detect_mod.wait_for_can_uuid, new_can_iface, want_type="klipper", timeout=30.0
+                                    detect_mod.wait_for_can_uuid, detected_can_iface, want_type="klipper", timeout=30.0
                                 )
                                 if not result:
                                     raise EZFException(
                                         f"No klipper-mode CAN device found on the new interface "
-                                        f"{new_can_iface} after flashing.\n\nThe board may not have "
+                                        f"{detected_can_iface} after flashing.\n\nThe board may not have "
                                         "booted into its newly-flashed firmware correctly."
                                     )
                                 can_uid, _fw_type = result
-                                screen.write(f"Detected klipper-mode CAN-bridge device: UUID {can_uid} on {new_can_iface}")
+                                screen.write(f"Detected klipper-mode CAN-bridge device: UUID {can_uid} on {detected_can_iface}")
                             else:
-                                known_klipper_devs = await asyncio.to_thread(detect_mod.detect_usb_serial, lambda p: "Klipper_" in p.name)
-                                await screen.run_argv("Flashing firmware via Katapult...", argv)
                                 klipper_dev = await asyncio.to_thread(detect_mod.wait_for_klipper_device, known=known_klipper_devs, timeout=10.0)
                                 if not klipper_dev:
                                     raise EZFException("No Klipper device detected after flashing.\n\nPlease check the connection.")
