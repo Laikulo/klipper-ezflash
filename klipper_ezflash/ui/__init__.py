@@ -1166,6 +1166,7 @@ class EZFlashApp(App):
                 if not board:
                     return
                 ifaces = board.interfaces if hasattr(board, "interfaces") else []
+                ifaces = sorted(ifaces, key=lambda i: i.if_type)
                 if len(ifaces) > 1:
                     tag = await self.menu(
                         choices=[(str(i), if_.pretty()) for i, if_ in enumerate(ifaces)],
@@ -1209,7 +1210,12 @@ class EZFlashApp(App):
                 # just two fixed, equally-weighted choices; no separate
                 # Cancel button — Escape still backs all the way out.
                 iface_label = chosen_if_type or "(none available)"
-                summary = f"{board.pretty()}\nSelected interface: {iface_label}\n"
+                speed_line = ""
+                if chosen_if_type and chosen_if_type.upper() in ("CAN", "CANBRIDGE"):
+                    speed_line = f"\nCAN bit rate: {InterfaceSettings().can_speed} bps"
+                elif chosen_if_type and chosen_if_type.upper() == "UART":
+                    speed_line = f"\nUART baud rate: {InterfaceSettings().uart_baudrate} baud"
+                summary = f"{board.pretty()}\nSelected interface: {iface_label}{speed_line}\n"
                 tag = await self.button_menu(
                     choices=[("begin", "Begin Flash"), ("reselect", "Reselect board/interface")],
                     message=summary,
