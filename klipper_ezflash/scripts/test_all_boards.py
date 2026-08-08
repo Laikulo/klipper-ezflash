@@ -26,6 +26,10 @@ def main():
                 config = target[0](target[1], board=board)
 
                 for i in config.get_interfaces():
+                    # CAN bridge is Klipper-only
+                    if (target[0] == Configurator.katapult
+                            and i.if_type in ("USB to CAN Bridge")):
+                        continue
                     try:
                         config.set_interface(i)
                     except Exception as e:
