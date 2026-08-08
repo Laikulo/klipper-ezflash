@@ -29,7 +29,6 @@ class SessionData:
     model: Optional[str] = None
     variant: Optional[str] = None
     detected_devices: List[Dict[str, Any]] = field(default_factory=list)
-    selected_device: Optional[str] = None
     katapult_path: Optional[str] = None
     bootloader_bin_hash: Optional[str] = None
     firmware_bin_hash: Optional[str] = None
@@ -49,7 +48,6 @@ class SessionData:
             model=data.get("model"),
             variant=data.get("variant"),
             detected_devices=data.get("detected_devices", []),
-            selected_device=data.get("selected_device"),
             katapult_path=data.get("katapult_path"),
             bootloader_bin_hash=data.get("bootloader_bin_hash"),
             firmware_bin_hash=data.get("firmware_bin_hash"),
