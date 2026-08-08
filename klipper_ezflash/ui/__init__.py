@@ -1090,6 +1090,22 @@ class EZFlashApp(App):
                         settings.can_speed = new_value
                         settings.save()
                         await self.msgbox(f"CAN Speed updated to {settings.can_speed} bps.")
+                        # Offer to update the host's CAN networking config to match the new speed.
+                        sync_now = await self.yesno(
+                            f"Update the host's system CAN networking config to match "
+                            f"({settings.can_speed} bps)? (sudo password may be required)",
+                            yes_label="Update",
+                            no_label="Not now",
+                            default_no=True,
+                        )
+                        if sync_now:
+                            try:
+                                with self.suspend():
+                                    print("\nApplying host CAN networking changes — you may be prompted for your sudo password below.\n")
+                                    fix_can_host_state(settings.can_speed)
+                                await self.msgbox("Host CAN networking has been updated.", title="CAN host state")
+                            except Exception as e:
+                                await self.msgbox(f"Failed to update host CAN networking:\n\n{e}", title="CAN host state")
                     except ValueError as e:
                         await self.msgbox(str(e))
             elif tag == "uart_baudrate":
