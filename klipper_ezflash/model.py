@@ -459,11 +459,11 @@ class BoardInterfaceDefinition(object):
         """USB-to-CAN bridge pseudo-interface: klipper is reachable over
         USB, but internally bridges to CAN using these pins, giving it a
         CAN UUID like a native CAN board would have despite the physical
-        connection being USB. Kept as a distinct if_type ("CANBRIDGE")
+        connection being USB. Kept as a distinct if_type ("USB to CAN Bridge")
         rather than folded into the plain "CAN" interface, so callers can
         tell the two apart (e.g. the UI's interface-selection menu, or
         deciding which flash path applies)."""
-        return cls("CANBRIDGE", {"tx": tx_pin, "rx": rx_pin})
+        return cls("USB to CAN Bridge", {"tx": tx_pin, "rx": rx_pin})
 
     def pretty(self):
         retstr = self.if_type

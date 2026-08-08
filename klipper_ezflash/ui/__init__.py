@@ -1178,7 +1178,7 @@ class EZFlashApp(App):
                 else:
                     chosen_if_type = ifaces[0].if_type if ifaces else None
 
-                if chosen_if_type in ("CAN", "CANBRIDGE"):
+                if chosen_if_type in ("CAN", "USB to CAN Bridge"):
                     can_settings = InterfaceSettings()
                     problems = await asyncio.to_thread(check_can_host_state, can_settings.can_speed)
                     if problems:
@@ -1211,9 +1211,9 @@ class EZFlashApp(App):
                 # Cancel button — Escape still backs all the way out.
                 iface_label = chosen_if_type or "(none available)"
                 speed_line = ""
-                if chosen_if_type and chosen_if_type.upper() in ("CAN", "CANBRIDGE"):
+                if chosen_if_type and chosen_if_type in ("CAN", "USB to CAN Bridge"):
                     speed_line = f"\nCAN bit rate: {InterfaceSettings().can_speed} bps"
-                elif chosen_if_type and chosen_if_type.upper() == "UART":
+                elif chosen_if_type and chosen_if_type == "UART":
                     speed_line = f"\nUART baud rate: {InterfaceSettings().uart_baudrate} baud"
                 summary = f"{board.pretty()}\nSelected interface: {iface_label}{speed_line}\n"
                 tag = await self.button_menu(
@@ -1236,15 +1236,15 @@ class EZFlashApp(App):
             interface_speed = None
             if chosen_if_type:
                 _settings_for_speed = InterfaceSettings()
-                if chosen_if_type.upper() in ("CAN", "CANBRIDGE"):
+                if chosen_if_type in ("CAN", "USB to CAN Bridge"):
                     interface_speed = _settings_for_speed.can_speed
-                elif chosen_if_type.upper() == "UART":
+                elif chosen_if_type == "UART":
                     interface_speed = _settings_for_speed.uart_baudrate
 
             session = SessionData(
                 step_index=0,
                 mcu_arch=board.mcu.arch,
-                interface=(chosen_if_type.lower() if chosen_if_type else None),
+                interface=(chosen_if_type if chosen_if_type else None),
                 interface_speed=interface_speed,
                 manufacturer=board.manufacturer,
                 model=board.model,
@@ -1255,14 +1255,14 @@ class EZFlashApp(App):
             # session.interface is stored lowercased (see below), but
             # every comparison against chosen_if_type elsewhere in this
             # method compares it against board.interfaces' if_type values,
-            # which are uppercase ("USB"/"CAN"/"CANBRIDGE"/"UART"). Without
+            # which are uppercase ("USB"/"CAN"/"USB to CAN Bridge"/"UART"). Without
             # normalizing case here, a resumed session's chosen_if_type
             # never matches anything, bootloader_iface/firmware_iface both
             # come back None, set_interface() never gets called at all, and
             # the Configurator silently falls back to Klipper's own kconfig
             # default (USB) — exactly the "board gets built for USB mode"
             # symptom this fixes.
-            chosen_if_type = session.interface.upper() if session.interface else None
+            chosen_if_type = session.interface if session.interface else None
 
         if session.step_index >= 4:
             await self.msgbox("A previously completed flash session was found. Starting fresh.")
@@ -1324,13 +1324,13 @@ class EZFlashApp(App):
                                 bootloader_config = Configurator.katapult(katapult_path, board=board)
                                 firmware_config = Configurator.klipper(firmware_path, board=board)
                                 # Katapult (the bootloader) always builds for plain USB, even
-                                # when the overall flash is CANBRIDGE — CANBRIDGE is a
+                                # when the overall flash is USB to CAN Bridge — USB to CAN Bridge is a
                                 # Klipper-firmware comms mode (the running firmware presents
                                 # itself as a USB-CAN adapter), not something the bootloader
                                 # itself needs to know about. The device must still be a
                                 # normal USB DFU/bootloader target to receive the firmware
                                 # flash in the first place.
-                                bootloader_if_type = "USB" if chosen_if_type == "CANBRIDGE" else chosen_if_type
+                                bootloader_if_type = "USB" if chosen_if_type == "USB to CAN Bridge" else chosen_if_type
                                 bootloader_iface = next((i for i in board.interfaces if i.if_type == bootloader_if_type), None)
                                 firmware_iface = next((i for i in board.interfaces if i.if_type == chosen_if_type), None)
                                 if bootloader_iface:
@@ -1346,7 +1346,7 @@ class EZFlashApp(App):
                                     bootloader_config.set_usb_default()
                                 if firmware_iface:
                                     firmware_config.set_interface(firmware_iface)
-                                    if firmware_iface.if_type in ("CAN", "UART", "CANBRIDGE") and session.interface_speed:
+                                    if firmware_iface.if_type in ("CAN", "UART", "USB to CAN Bridge") and session.interface_speed:
                                         firmware_config.set_interface_speed(session.interface_speed)
 
                         # --- Step 0: compile bootloader (skip if the
@@ -1547,13 +1547,13 @@ class EZFlashApp(App):
                             await screen.run_argv(f"Flashing firmware via UART ({chosen_port})...", argv)
                             screen.write(f"Flashed firmware over UART: {chosen_port}")
                         else:
-                            # Both plain USB and CANBRIDGE reach the firmware
+                            # Both plain USB and USB to CAN Bridge reach the firmware
                             # flash the same way at this point: the board is
                             # still sitting in Katapult bootloader mode over
                             # USB serial (Katapult itself was always built
                             # for plain USB, per the bootloader/firmware
-                            # config split above) — CANBRIDGE-mode comms only
-                            # exist once the CANBRIDGE-configured firmware
+                            # config split above) — USB to CAN Bridge-mode comms only
+                            # exist once the USB to CAN Bridge-configured firmware
                             # itself is running, which hasn't happened yet.
                             screen.write("Waiting for the device to reboot into Katapult....")
                             katapult_dev = await asyncio.to_thread(
@@ -1573,7 +1573,7 @@ class EZFlashApp(App):
                                 # Snapshot existing CAN interfaces BEFORE
                                 # flashing, so the newly-appeared one (the
                                 # board itself, once it reboots running
-                                # CANBRIDGE-mode firmware and enumerates as
+                                # USB to CAN Bridge-mode firmware and enumerates as
                                 # a USB-CAN adapter) can be told apart from
                                 # any that were already present.
                                 known_can_ifaces = await asyncio.to_thread(detect_mod.list_can_interfaces)

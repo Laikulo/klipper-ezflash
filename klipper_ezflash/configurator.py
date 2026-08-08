@@ -357,7 +357,7 @@ class Configurator(object):
                 )
         elif if_type == "CAN":
             self._select_can_bus(interface)
-        elif if_type == "CANBRIDGE":
+        elif if_type == "USB to CAN Bridge":
             usb_interface = next(
                 (i for i in self._board.interfaces if i.if_type == "USB"), None
             )
@@ -383,7 +383,7 @@ class Configurator(object):
 
     def set_interface_speed(self, speed):
         """Set the speed/baud rate of the currently configured interface:
-        UART baud rate, or CAN bus bitrate — including CANBRIDGE, which
+        UART baud rate, or CAN bus bitrate — including USB to CAN Bridge, which
         still needs the compiled-in CAN bus speed symbol set to match the
         physical bus even though it also gets a host-side runtime bitrate
         via systemd-networkd (see check_can_host_state/fix_can_host_state
@@ -394,10 +394,10 @@ class Configurator(object):
         prompt = {
             "UART": "Baud rate for serial port",
             "CAN": "CAN bus speed",
-            "CANBRIDGE": "CAN bus speed",
+            "USB to CAN Bridge": "CAN bus speed",
         }.get(iface.if_type)
         if not prompt:
-            raise ValueError("Attempted to set interface speed on a non-CAN/CANBRIDGE/UART interface")
+            raise ValueError("Attempted to set interface speed on a non-CAN/USB to CAN Bridge/UART interface")
         self.kconfig.symbol(prompt=prompt).set(str(speed))
 
     def _header(self):

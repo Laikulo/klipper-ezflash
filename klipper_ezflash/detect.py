@@ -297,7 +297,7 @@ def wait_for_new_can_interface(known: Iterable[str], timeout: float = 15.0) -> O
     `known` (a snapshot taken before the flash was triggered).
 
     Used to identify a CAN-bridge board's own interface once it reboots
-    into CANBRIDGE-mode firmware and enumerates as a new USB-CAN adapter
+    into USB to CAN Bridge-mode firmware and enumerates as a new USB-CAN adapter
     — there's no serial-device equivalent to match against here, since
     the board no longer exposes a USB-serial device at all in this mode.
 
