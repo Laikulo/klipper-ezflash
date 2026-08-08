@@ -1285,6 +1285,8 @@ class EZFlashApp(App):
                         katapult_path = find_katapult()
                         if not katapult_path:
                             raise EZFException("Katapult checkout not found — cannot configure or compile")
+                        # Store for resume sessions
+                        session.katapult_path = str(katapult_path)
                         firmware_path = find_klipper()
                         if not firmware_path:
                             raise EZFException("Klipper checkout not found — cannot configure or compile")
