@@ -629,6 +629,20 @@
           "status": "PA13"
         }
       },
+      "EBB36 Gen2": {
+        "EBB36 Gen2 v1.0": {
+          "boot_method": "boot+reset",
+          "documentation": "https://global.bttwiki.com/EBB36_GEN2.html",
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB12/PB13",
+          "usb": "PA11/PA12",
+          "status": "PA2"
+        }
+      },
       "EBB42": {
         "EBB42 v1.2": {
           "boot_method": "boot+reset",
@@ -641,6 +655,20 @@
           "can": "PB0/PB1",
           "usb": "PA11/PA12",
           "status": "PA13"
+        }
+      },
+      "EBB42 Gen2": {
+        "EBB42 Gen2 v1.0": {
+          "boot_method": "boot+reset",
+          "documentation": "https://global.bttwiki.com/EBB42_GEN2.html",
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB12/PB13",
+          "usb": "PA11/PA12",
+          "status": "PA8"
         }
       },
       "SB2209": {
