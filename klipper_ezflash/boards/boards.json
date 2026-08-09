@@ -1101,6 +1101,22 @@
         }
       }
     },
+    "LDO": {
+      "Rethonance Hub": {
+        "Rethonance Hub v1.0": {
+          "boot_method": "boot+reset",
+          "documentation": "https://docs.ldomotors.com/en/voron/unicorn",
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "stm32g0b1",
+            "clock": "12MHz"
+          },
+          "usb": "PA11/PA12",
+          "status": "!PD0",
+          "startup_pins": "PD0"
+        }
+      }
+    },
     "Mellow": {
       "Fly ADXL345": {
         "Fly ADXL345": {
