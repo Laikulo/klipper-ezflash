@@ -66,7 +66,7 @@ from ..session import load_session, save_session, clear_session, SessionData
 from .. import device as device_mod
 from .. import flash as flash_mod
 from .. import detect as detect_mod
-from ..fault import EZFException
+from ..fault import EZFException, AmbiguousCanUuidException
 
 
 # --------------------------------------------------------------------------
@@ -1615,9 +1615,26 @@ class EZFlashApp(App):
                                             "Prepare host OS for CAN) and the board's connection."
                                         )
                                 screen.write(f"Waiting for the flashed firmware to appear as a klipper-mode CAN device on {detected_can_iface}....")
-                                result = await asyncio.to_thread(
-                                    detect_mod.wait_for_can_uuid, detected_can_iface, want_type="klipper", timeout=30.0
-                                )
+                                try:
+                                    result = await asyncio.to_thread(
+                                        detect_mod.wait_for_can_uuid, detected_can_iface, want_type="klipper", timeout=30.0
+                                    )
+                                except AmbiguousCanUuidException as e:
+                                    screen.write(
+                                        f"Multiple klipper-mode CAN devices found at once "
+                                        f"({len(e.candidates)}) — attempting to identify which one "
+                                        "is the board just flashed..."
+                                    )
+                                    resolved_uuid = await self.resolve_can_ambiguity(
+                                        e.candidates, board, detected_can_iface, firmware_path
+                                    )
+                                    if resolved_uuid is None:
+                                        raise EZFException(
+                                            "Could not determine which CAN device is the board just "
+                                            "flashed, and no selection was made."
+                                        )
+                                    screen.write(f"Resolved to UUID {resolved_uuid}")
+                                    result = (resolved_uuid, "klipper")
                                 if not result:
                                     raise EZFException(
                                         f"No klipper-mode CAN device found on the new interface "
@@ -1693,6 +1710,72 @@ class EZFlashApp(App):
             self.pop_screen()
 
     # ---- top-level menu loop ------------------------------------------
+
+
+    async def resolve_can_ambiguity(
+        self, candidates: list[tuple[str, str]], board, interface: str, klipper_path: Path
+    ) -> Optional[str]:
+        """Given multiple same-typed CAN UUIDs found at once, try to
+        auto-resolve which one is actually the board being flashed by
+        querying each candidate's MCU config over the real klipper
+        protocol (identify_can_device) and checking whether it reports
+        CANBUS_BRIDGE (i.e. it's actually running USB-to-CAN-bridge
+        firmware — normally only the board just flashed will be) and
+        whether its RESERVE_PINS_CAN matches this board's actual CAN
+        pins from boards.json exactly (a set comparison — order in the
+        Kconfig-reported string isn't guaranteed to match boards.json's
+        rx/tx order).
+
+        Falls back to asking the user — showing whatever identify info
+        was gathered for each candidate — if auto-resolution doesn't
+        land on exactly one match. This includes the case where `board`
+        is None (a fully-cached resumed session skips board
+        reconstruction entirely) or identify_can_device itself fails for
+        some/all candidates: a failed query is treated as "unknown", not
+        as a negative match, so it never silently excludes the right
+        device — it just can't be auto-confirmed.
+        """
+        info: dict[str, Optional[dict]] = {}
+        matches: list[str] = []
+        for uuid, _fw_type in candidates:
+            try:
+                constants = await asyncio.to_thread(
+                    detect_mod.identify_can_device, uuid, interface, klipper_path
+                )
+            except Exception:
+                constants = None
+            info[uuid] = constants
+            if constants and constants.get("CANBUS_BRIDGE") and board is not None and board.can:
+                reserved = {
+                    p.strip().upper()
+                    for p in str(constants.get("RESERVE_PINS_CAN", "")).split(",")
+                    if p.strip()
+                }
+                board_pins = {board.can.rx_pin.upper(), board.can.tx_pin.upper()}
+                if reserved == board_pins:
+                    matches.append(uuid)
+
+        if len(matches) == 1:
+            return matches[0]
+
+        choices = []
+        for i, (uuid, fw_type) in enumerate(candidates):
+            constants = info.get(uuid)
+            if constants:
+                mcu = constants.get("MCU", "?")
+                bridge = "bridge" if constants.get("CANBUS_BRIDGE") else "non-bridge"
+                reset_status = constants.get("_reset_status", "?")
+                label = f"{uuid} ({mcu}, {bridge}, reset: {reset_status})"
+            else:
+                label = f"{uuid} (could not identify)"
+            choices.append((str(i), label))
+        tag = await self.menu(
+            choices=choices,
+            message="Multiple matching CAN devices detected. Which one is the board being flashed?",
+        )
+        if tag is None:
+            return None
+        return candidates[int(tag)][0]
 
     async def prepare_can_host_menu(self) -> None:
         settings = InterfaceSettings()

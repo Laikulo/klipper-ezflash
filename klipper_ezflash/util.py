@@ -14,6 +14,33 @@ from collections.abc import Collection
 _KATAPULT_CLONE_URL = "https://github.com/Arksine/katapult.git"
 _COMMON_KATAPULT_LOCATIONS = ["~/katapult", "~/Katapult", "/usr/src/katapult"]
 _COMMON_KLIPPER_LOCATIONS = ["~/klipper", "~/Klipper", "/usr/src/klipper"]
+_COMMON_KLIPPY_ENV_LOCATIONS = ["~/klippy-env", "~/Klippy-env"]
+
+
+@cache
+def find_klippy_env_python() -> Path | None:
+    """Find klippy-env's own python interpreter (klipper's dedicated
+    virtualenv).
+
+    Needed for anything that imports klippy's own host-side modules
+    (reactor, serialhdl, msgproto, ...) — those depend on a compiled C
+    extension (chelper) built specifically for that environment, and
+    klippy's own tools (e.g. console.py) are written/tested against it,
+    not this app's own venv.
+
+    Returns a Path to the python binary if found, or None if not present.
+    """
+    if override_path := os.environ.get("KBOARD_KLIPPY_ENV_PATH"):
+        path = Path(override_path)
+        if path.exists():
+            return path
+        else:
+            raise ValueError("Specified KBOARD_KLIPPY_ENV_PATH does not exist")
+    for location in _COMMON_KLIPPY_ENV_LOCATIONS:
+        python_path = Path(location).expanduser() / "bin" / "python"
+        if python_path.exists():
+            return python_path
+    return None
 
 
 @cache

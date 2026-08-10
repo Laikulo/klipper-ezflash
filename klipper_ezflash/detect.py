@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import json
 import os
 import re
+import subprocess
 import sys
 import time
 import threading
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional, Tuple
 
-from .fault import EZFException
-from .util import find_tool, find_katapult, run_captured
+from .fault import EZFException, AmbiguousCanUuidException
+from .util import find_tool, find_katapult, find_klippy_env_python, run_captured
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -380,10 +382,136 @@ def wait_for_can_uuid(
         matching = [(u, fw) for u, fw in found if fw == want_type]
         if len(matching) > 1:
             raw_list = "\n".join(f"  - {u}" for u, _ in matching)
-            raise EZFException(
+            raise AmbiguousCanUuidException(
                 f"Multiple {want_type}-mode CAN devices detected at once:\n{raw_list}\n\n"
-                "Remove the extra device(s) so only the board you want is present, then retry."
+                "Remove the extra device(s) so only the board you want is present, then retry.",
+                candidates=matching,
             )
         if matching:
             return matching[0]
+
+
+def identify_can_device(
+    uuid: str,
+    interface: str,
+    klipper_path: Path,
+    timeout: float = 10.0,
+) -> dict:
+    """Connect to a CAN device (native CAN or CANBRIDGE-mode) using
+    klippy's own host-side connection code, and return its reported MCU
+    config constants (e.g. MCU, CLOCK_FREQ) as a dict.
+
+    Used to disambiguate multiple klipper-mode CAN devices found at once
+    (see wait_for_can_uuid's ambiguity error) by comparing each one's
+    reported MCU/clock against the board actually being flashed —
+    boards.json's mcu.mcu field is documented as matching Klipper's own
+    MCU constant format exactly (see boards/readme.md), so this is a
+    direct string comparison, not a fuzzy one.
+
+    Connecting to a CAN device assigns it a runtime node ID via the CAN
+    admin protocol's SET_NODEID command, which is why it stops responding
+    to canbus_query.py-style scans afterward — there is no "release"
+    command in that protocol (confirmed against Klipper's own
+    CANBUS_protocol.md). To avoid leaving the device in that claimed
+    state, this sends Klipper's own "reset" MCU command (falling back to
+    "config_reset") right after reading the constants, over the same
+    connection — EXCEPT for a device reporting CANBUS_BRIDGE, which is
+    skipped entirely: klippy's own mcu.py deliberately refuses to restart
+    bridge MCUs through the normal path (`_firmware_restart` returns
+    immediately if `self._is_mcu_bridge and not force`), because a bridge
+    MCU *is* the can0 interface itself — resetting it doesn't just drop
+    one node, it disables the whole USB-CAN adapter (per Klipper's own
+    CANBUS docs: "Whenever the bridge mcu is reset, Linux will disable
+    the corresponding can0 interface"), which would disrupt every other
+    device sharing that bus, not just the one being probed.
+
+    This bypasses mcu.py's CommandWrapper/MCU wrapper classes entirely
+    (they're tightly coupled to a full MCUConnectHelper we don't have
+    here) and instead replicates what CommandWrapper.send() actually does
+    underneath, directly against the bare SerialReader: look up the
+    command via msgparser.lookup_command(name), encode it, and hand the
+    bytes to serial.raw_send() with serial.get_default_command_queue() —
+    both confirmed as real SerialReader methods (not MCU-only) from
+    klippy's actual mcu.py source. This is best-effort: a failure to
+    find/send the reset command is swallowed, since it should never mask
+    the identify data already successfully read.
+
+    Runs as a subprocess under klippy-env's own Python with the connect
+    logic passed inline via `-c`, rather than importing klippy's reactor
+    directly into this process: klippy's reactor is a full event-loop
+    implementation of its own, and running it inside this app's existing
+    Textual/asyncio event loop risks real deadlocks, not just a style
+    clash. It also depends on a compiled C extension built specifically
+    for klippy-env, and its own tooling (e.g. console.py) is
+    written/tested against that environment, not this app's own venv.
+
+    Raises EZFException if klippy-env can't be found, the subprocess
+    fails, or it doesn't report anything within `timeout` seconds.
+    """
+    klippy_python = find_klippy_env_python()
+    if not klippy_python:
+        raise EZFException(
+            "Could not find klippy-env's Python interpreter "
+            "(expected ~/klippy-env/bin/python)"
+        )
+
+    klippy_dir = str(Path(klipper_path) / "klippy")
+    marker = "KBOARD_IDENTIFY_JSON:"
+    inline_script = (
+        "import sys, os, json\n"
+        f"sys.path.insert(0, {klippy_dir!r})\n"
+        "import reactor, serialhdl\n"
+        "r = reactor.Reactor()\n"
+        "def _connect(eventtime):\n"
+        "    try:\n"
+        "        ser = serialhdl.SerialReader(r)\n"
+        f"        ser.connect_canbus({uuid!r}, 64, {interface!r})\n"
+        "        constants = ser.get_msgparser().get_constants()\n"
+        "        if constants.get('CANBUS_BRIDGE'):\n"
+        "            reset_status = 'skipped (bridge device — resetting it would disrupt the whole CAN interface for other devices, same as klippy itself does)'\n"
+        "        else:\n"
+        "            reset_status = 'no reset/config_reset command found'\n"
+        "            try:\n"
+        "                msgparser = ser.get_msgparser()\n"
+        "                cmd_fmt = None\n"
+        "                for name in ('reset', 'config_reset'):\n"
+        "                    try:\n"
+        "                        cmd_fmt = msgparser.lookup_command(name)\n"
+        "                        break\n"
+        "                    except Exception:\n"
+        "                        continue\n"
+        "                if cmd_fmt is not None:\n"
+        "                    cq = ser.get_default_command_queue()\n"
+        "                    ser.raw_send(cmd_fmt.encode(()), 0, 0, cq)\n"
+        "                    reset_status = 'sent'\n"
+        "            except Exception as e:\n"
+        "                reset_status = 'failed: ' + repr(e)\n"
+        "        constants['_reset_status'] = reset_status\n"
+        f"        sys.stdout.write({marker!r} + json.dumps(constants) + chr(10))\n"
+        "        sys.stdout.flush()\n"
+        "    finally:\n"
+        "        os._exit(0)\n"
+        "r.register_callback(_connect)\n"
+        "r.run()\n"
+    )
+
+    try:
+        result = subprocess.run(
+            [str(klippy_python), "-c", inline_script],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        raise EZFException(f"Timed out identifying CAN device {uuid} on {interface} after {timeout}s")
+
+    for line in result.stdout.splitlines():
+        if line.startswith(marker):
+            try:
+                return json.loads(line[len(marker):])
+            except json.JSONDecodeError as e:
+                raise EZFException(f"Could not parse identify response for {uuid}: {e}")
+
+    raise EZFException(
+        f"Could not identify CAN device {uuid} on {interface}.\n\n"
+        f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
+    )
 
