@@ -307,3 +307,39 @@ def fix_can_host_state(can_speed: int) -> None:
     _run_sudo(["udevadm", "control", "--reload-rules"], "Reloading udev rules")
     _run_sudo(["udevadm", "trigger"], "Triggering udev")
     _run_sudo(["networkctl", "reload"], "Reloading systemd-networkd config")
+
+
+# --------------------------------------------------------------------------
+# Klipper service stop/start around a flash
+# --------------------------------------------------------------------------
+
+def stop_services(names: list[str]) -> list[str]:
+    """Stop each systemd service in `names` that is currently active.
+
+    Returns the list of names actually stopped (i.e. excluding ones that
+    were already inactive), so the caller only restarts what it itself
+    touched, rather than starting a service the user had deliberately
+    left off. Raises EZFException on the first stop command that fails.
+    """
+    stopped = []
+    for name in names:
+        if subprocess.run(["systemctl", "is-active", "--quiet", name]).returncode != 0:
+            continue
+        _run_sudo(["systemctl", "stop", name], f"Stopping {name}")
+        stopped.append(name)
+    return stopped
+
+
+def start_services(names: list[str]) -> None:
+    """Best-effort restart of each service in `names`.
+
+    Doesn't raise — this runs during app-exit cleanup after Textual has
+    already torn down (see ui/__init__.py's main()), where there's no
+    dialog left to show an error in, and a single failed restart
+    shouldn't block the others or block the process from exiting cleanly.
+    """
+    for name in names:
+        try:
+            _run_sudo(["systemctl", "start", name], f"Starting {name}")
+        except Exception:
+            pass

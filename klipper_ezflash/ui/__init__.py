@@ -38,6 +38,7 @@ import contextlib
 import datetime
 import io
 import shlex
+import subprocess
 import tempfile
 import traceback
 from enum import Enum
@@ -61,6 +62,8 @@ from ..util import (
     file_sha256,
     check_can_host_state,
     fix_can_host_state,
+    stop_services,
+    start_services,
 )  # NOTE: confirm this matches your util.py's actual function name
 from ..session import load_session, save_session, clear_session, SessionData
 from .. import device as device_mod
@@ -896,6 +899,14 @@ class EZFlashApp(App):
         super().__init__()
         self._board_db: Optional[BoardDatabase] = None
         self._katapult_checked = False
+        # Services WE stopped (see stop_services_for_flash below) — only
+        # ever restarted once, when the app exits (main(), after run()
+        # returns), not after each individual flash: the user may want
+        # to flash more than one board in a single app session, and
+        # bouncing Klipper/Moonraker between each one would be needless
+        # churn (and would re-trigger the same disruption we're trying to
+        # avoid by stopping them in the first place).
+        self._stopped_services: list[str] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -1270,6 +1281,9 @@ class EZFlashApp(App):
                 clear_session()
             except Exception:
                 pass
+            return
+
+        if not await self.stop_services_for_flash():
             return
 
         screen = FlashFlowScreen(self.FLASH_STEP_NAMES)
@@ -1711,6 +1725,58 @@ class EZFlashApp(App):
 
     # ---- top-level menu loop ------------------------------------------
 
+    async def stop_services_for_flash(self) -> bool:
+        """Offer to stop Klipper before touching any hardware for this 
+        flash — called right before the flash screen is created, the
+        common point for both a fresh flash (just confirmed via "Begin
+        Flash") and a resumed session, since either path is about to
+        start detecting/talking to the device.
+
+        Only checks/prompts once per app run: if we've already stopped
+        services earlier this session, later flashes skip straight
+        through (no point re-stopping something already stopped, and no
+        point re-prompting either). If the user declines, this returns
+        False and the caller aborts the flash entirely — Klipper actively
+        holding the device, or generating its own CAN traffic, can
+        interfere with detection/flashing in ways that are hard to
+        diagnose after the fact, so "flash anyway" isn't offered here the
+        way it is for the CAN host-state check.
+
+        Returns True if it's fine to proceed (services stopped, none were
+        running, or already stopped earlier this run), False if the user
+        cancelled or stopping them failed.
+        """
+        if self._stopped_services:
+            return True
+        active = [
+            name for name in ("klipper",)
+            if subprocess.run(["systemctl", "is-active", "--quiet", name]).returncode == 0
+        ]
+        if not active:
+            return True
+        proceed = await self.yesno(
+            f"WARNING:\n\n"
+            f"{' and '.join(s.capitalize() for s in active)} "
+            f"{'is' if len(active) == 1 else 'are'} currently running and it is recommended to stop "
+            f"{'it' if len(active) == 1 else 'them'} before flashing a board to prevent detection "
+            f"conflicts.\n\n"
+            "DO NOT STOP or flash while a print is running! Stopping the service(s) "
+            "will automatically crash any prints in progress.",
+            yes_label="Stop service(s) and flash",
+            no_label="Cancel flash",
+            default_no=True,
+        )
+        if not proceed:
+            return False
+        try:
+            with self.suspend():
+                print("\nStopping service(s) — you may be prompted for your sudo password below.\n")
+                stopped = stop_services(active)
+            self._stopped_services.extend(stopped)
+            return True
+        except Exception as e:
+            await self.msgbox(f"Failed to stop service(s):\n\n{e}", title="Error")
+            return False
 
     async def resolve_can_ambiguity(
         self, candidates: list[tuple[str, str]], board, interface: str, klipper_path: Path
@@ -1932,7 +1998,14 @@ class EZFlashApp(App):
 
 
 def main() -> None:
-    EZFlashApp().run()
+    app = EZFlashApp()
+    app.run()
+    if app._stopped_services:
+        # Runs after Textual has fully torn down and the terminal is back
+        # to normal (app.run() is synchronous and blocks until exit) —
+        # sudo can prompt directly here without needing app.suspend().
+        print(f"\nRestarting services: {', '.join(app._stopped_services)}")
+        start_services(app._stopped_services)
 
 
 if __name__ == "__main__":
