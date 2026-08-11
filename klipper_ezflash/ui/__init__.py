@@ -1305,6 +1305,7 @@ class EZFlashApp(App):
         known_can_ifaces: Optional[list] = None
         detected_can_iface: Optional[str] = None
         katapult_serial_path: Optional[str] = None
+        uart_port: Optional[str] = None
         try:
             while True:
                 try:
@@ -1549,7 +1550,8 @@ class EZFlashApp(App):
                             # "katapult_"/"Klipper_" style name to
                             # auto-match against the way a board's own
                             # native USB port has, so the user has to
-                            # pick which serial device it actually is.
+                            # pick which serial device it actually is
+                            # (or let us probe for it).
                             screen.write(
                                 "UART interface selected — this board's bootloader can't be "
                                 "auto-detected over a generic serial adapter; select the port "
@@ -1564,14 +1566,54 @@ class EZFlashApp(App):
                             if len(ports) == 1:
                                 chosen_port = ports[0]
                             else:
-                                tag = await self.menu(
-                                    choices=[(str(i), str(p)) for i, p in enumerate(ports)],
-                                    message="Multiple serial devices detected. Select the one "
-                                            "connected to this board's UART pins:",
+                                speed = session.interface_speed or InterfaceSettings().uart_baudrate
+                                probe_results: dict = {p: None for p in ports}
+                                try_auto = await self.yesno(
+                                    f"{len(ports)} serial devices detected.\n\n"
+                                    "Try to auto-detect which one is the board by briefly "
+                                    "probing each port for a Katapult bootloader response? "
+                                    "This only works if the board is currently sitting in "
+                                    "bootloader mode.",
+                                    yes_label="Auto-detect",
+                                    no_label="Select manually",
+                                    default_no=True,
                                 )
-                                if tag is None:
-                                    raise EZFException("User cancelled serial port selection")
-                                chosen_port = ports[int(tag)]
+                                chosen_port = None
+                                if try_auto:
+                                    matches = []
+                                    for p in ports:
+                                        screen.write(f"Probing {p}...")
+                                        ok = await asyncio.to_thread(
+                                            detect_mod.probe_katapult_status, p, firmware_bin, speed
+                                        )
+                                        probe_results[p] = ok
+                                        screen.write(f"  {p}: {'Katapult detected' if ok else 'no response'}")
+                                        if ok:
+                                            matches.append(p)
+                                    if len(matches) == 1:
+                                        chosen_port = matches[0]
+                                    elif not matches:
+                                        screen.write("Auto-detect found no matching device — falling back to manual selection.")
+                                    else:
+                                        screen.write(f"Auto-detect found {len(matches)} matching devices — falling back to manual selection.")
+
+                                if chosen_port is None:
+                                    def _label(p):
+                                        friendly = detect_mod.describe_serial_port(p)
+                                        result = probe_results.get(p)
+                                        if result is True:
+                                            return f"{friendly} (Katapult detected)"
+                                        elif result is False:
+                                            return f"{friendly} (no response)"
+                                        return friendly
+                                    tag = await self.menu(
+                                        choices=[(str(i), _label(p)) for i, p in enumerate(ports)],
+                                        message="Multiple serial devices detected. Select the one "
+                                                "connected to this board's UART pins:",
+                                    )
+                                    if tag is None:
+                                        raise EZFException("User cancelled serial port selection")
+                                    chosen_port = ports[int(tag)]
 
                             speed = session.interface_speed or InterfaceSettings().uart_baudrate
                             argv = flash_mod.build_flashtool_cmd(
@@ -1579,6 +1621,7 @@ class EZFlashApp(App):
                             )
                             await screen.run_argv(f"Flashing firmware via UART ({chosen_port})...", argv)
                             screen.write(f"Flashed firmware over UART: {chosen_port}")
+                            uart_port = str(chosen_port)
                         else:
                             # Both plain USB and USB to CAN Bridge reach the firmware
                             # flash the same way at this point: the board is
@@ -1681,6 +1724,7 @@ class EZFlashApp(App):
                     iface = (session.interface or "USB")
                     is_canbridge = "USB to CAN Bridge" in iface
                     is_can_only = ("CAN" in iface) and not is_canbridge
+                    is_uart = "UART" in iface
                     summary_lines = ["Flash flow completed successfully."]
                     if is_canbridge:
                         if katapult_serial_path:
@@ -1690,6 +1734,9 @@ class EZFlashApp(App):
                     elif is_can_only:
                         if can_uid:
                             summary_lines.append(f"CAN UUID: {can_uid}")
+                    elif is_uart:
+                        if uart_port:
+                            summary_lines.append(f"Serial port: {uart_port}")
                     else:
                         if katapult_serial_path:
                             summary_lines.append(f"Katapult serial: {katapult_serial_path}")

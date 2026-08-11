@@ -198,18 +198,156 @@ def list_serial_ports() -> List[Path]:
     to auto-match against the way a board's own native USB port does —
     there's no way to tell which serial adapter is the right one without
     asking.
+
+    Prefers /dev/serial/by-path/ over /dev/serial/by-id/ as the primary
+    source: by-id names are derived from the device's own reported
+    vendor/product/serial, which collide when two identical adapters
+    share the same (often blank) serial number — udev then only creates
+    one by-id symlink for both, silently hiding the second device from
+    this list entirely. by-path names are derived from USB bus/port
+    topology instead, which is inherently unique per physical connection
+    point regardless of what the device itself reports (see
+    describe_serial_port() for a friendlier display label built from
+    by-id when it's actually unique).
+
+    by-path itself can have its own duplication problem, just a different
+    one: some USB controller/kernel combinations (seen on Pi-style SoC
+    xHCI controllers) generate two by-path aliases for the exact same
+    physical port — one from a legacy-style enumeration path
+    ("...usb-0:..."), one from the newer xHCI-derived naming
+    ("...usbv2-0:...") — both resolving to the same real device. These
+    are deduplicated by resolved target below, keeping one entry per
+    unique underlying device rather than surfacing every alias as if it
+    were a separate port.
     """
-    base = Path("/dev/serial/by-id")
-    if base.exists():
-        ports = sorted(base.iterdir())
+    def _dedup_by_target(paths: List[Path]) -> List[Path]:
+        seen_targets: dict = {}
+        for p in paths:
+            try:
+                real = p.resolve()
+            except OSError:
+                real = p
+            seen_targets.setdefault(real, p)
+        return sorted(seen_targets.values())
+
+    by_path = Path("/dev/serial/by-path")
+    if by_path.exists():
+        ports = _dedup_by_target(sorted(by_path.iterdir()))
         if ports:
             return ports
-    # Fall back to /dev/ttyUSB*/ttyACM* if by-id is empty — some older
-    # adapters/drivers don't populate by-id at all.
+    by_id = Path("/dev/serial/by-id")
+    if by_id.exists():
+        ports = _dedup_by_target(sorted(by_id.iterdir()))
+        if ports:
+            return ports
+    # Fall back to /dev/ttyUSB*/ttyACM* if neither by-path nor by-id
+    # exist at all — very old systems/drivers.
     dev = Path("/dev")
     if not dev.exists():
         return []
     return sorted(p for p in dev.glob("tty*") if p.name.startswith(("ttyUSB", "ttyACM")))
+
+
+def describe_serial_port(port: Path) -> str:
+    """Build a human-friendly label for a serial port entry, for display
+    in a selection menu.
+
+    list_serial_ports() prefers /dev/serial/by-path/ for uniqueness (see
+    its docstring), but those names are long, topology-derived strings
+    that aren't very readable on their own (e.g.
+    "platform-3f980000.usb-usb-0:1.2:1.0-port0"). If a corresponding
+    /dev/serial/by-id/ entry exists AND it's the only one resolving to
+    this same underlying device, use that instead — it's far more
+    readable (e.g. "usb-FTDI_FT232R_USB_UART-if00-port0") and only
+    unreliable in exactly the collision case list_serial_ports() already
+    routes around by preferring by-path in the first place.
+    """
+    try:
+        real = port.resolve()
+    except OSError:
+        return str(port)
+    by_id_dir = Path("/dev/serial/by-id")
+    if by_id_dir.exists():
+        matches = []
+        try:
+            for item in by_id_dir.iterdir():
+                try:
+                    if item.resolve() == real:
+                        matches.append(item)
+                except OSError:
+                    continue
+        except OSError:
+            pass
+        if len(matches) == 1:
+            return f"{matches[0].name} ({real})"
+    return str(port)
+
+
+def probe_katapult_status(
+    device: Path,
+    firmware_bin: Path,
+    baud: Optional[int] = None,
+    katapult_path: Optional[Path] = None,
+    timeout: float = 10.0,
+) -> bool:
+    """Probe a serial device to see if a Katapult bootloader is actually
+    listening there, using katapult's own flashtool.py in --status mode
+    (connect and report status, no flashing) — confirmed from Katapult's
+    actual scripts/flashtool.py source: -s/--status runs the same
+    connect_btl() path as an actual flash (proper frame/header/trailer/CRC
+    validation, 5 retries at 2s each by default), just exits before
+    send_file().
+
+    `baud` MUST match whatever rate the actual flash will use (session's
+    configured UART baud rate) — flashtool.py falls back to its own
+    default otherwise, which silently talks at the wrong speed and
+    produces a false "no response" on every candidate port regardless of
+    which one is actually correct, indistinguishable from a genuinely
+    absent device.
+
+    `firmware_bin` is passed as flashtool's required --firmware argument
+    even though status mode never reads it (BaseSocket._check_firmware()
+    only validates it for an actual flash request) — using the real
+    firmware path already being flashed is simplest, no placeholder
+    needed.
+
+    Only meaningful for a board expected to be sitting in Katapult's
+    bootloader steady-state (e.g. right after its bootloader was just
+    flashed, application area still empty, per Katapult's own "auto-enter
+    bootloader if application area is empty" behavior) — NOT for catching
+    a brief post-reset bootloader window on an already-running board,
+    which needs a different approach entirely (flooding CONNECT frames
+    against a narrow timing window, not implemented here since it's not
+    this function's use case).
+
+    Returns True if flashtool.py reports a successful connection, False
+    on any failure (wrong device, nothing listening, timeout, katapult
+    checkout not found, etc.) — never raises, since this is meant to be
+    tried across several candidate ports where a failure on any one of
+    them is an entirely expected, unremarkable outcome, not an error
+    condition.
+    """
+    kp = Path(katapult_path) if katapult_path else None
+    if kp is None:
+        try:
+            kp = find_katapult()
+        except Exception:
+            kp = None
+    if kp is None:
+        return False
+    flashtool = kp / "scripts" / "flashtool.py"
+    if not flashtool.exists():
+        return False
+    py = os.environ.get("KBOARD_KLIPPY_PYTHON") or sys.executable or "/usr/bin/python3"
+    cmd = [py, str(flashtool), "-d", str(device), "-f", str(firmware_bin)]
+    if baud:
+        cmd.extend(["-b", str(baud)])
+    cmd.append("-s")
+    try:
+        out = run_captured(cmd, timeout=timeout)
+    except Exception:
+        return False
+    return "Katapult Connected" in out
 
 
 def detect_can_uuid(katapult_path: Optional[Path] = None, interface: str = "can0", timeout: int = 10) -> List[Tuple[str, str]]:
