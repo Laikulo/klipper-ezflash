@@ -63,11 +63,76 @@ class BoardDatabase(object):
         errors_list, if provided, will be appended with human-readable messages
         describing any variants that were skipped due to missing or malformed
         fields. The same messages are also stored in self._load_warnings.
+
+        Defensive at every nesting level, not just the innermost from_data()
+        call: the expected shape is exactly four levels deep (category ->
+        manufacturer -> product -> variant -> field-dict, per
+        boards/readme.md), and a common authoring mistake is collapsing
+        product and variant into one level — which doesn't fail until deep
+        inside from_data() as a raw 'string indices must be integers, not
+        str'/AttributeError when a board's own field values (mcu, usb,
+        etc.) get iterated as if they were variant names. Catching that
+        structural mismatch explicitly, one level at a time, gives a
+        precise "this level should be an object, got a string" message
+        instead of a confusing crash with no indication of which file/path
+        is actually wrong.
         """
+        if not isinstance(json_data, dict):
+            msg = f"user_boards.json root must be an object, got {type(json_data).__name__}"
+            logger.warning(msg)
+            if errors_list is not None:
+                errors_list.append(msg)
+            self._load_warnings.append(msg)
+            return
+
         for category, manufacturers in json_data.items():
+            if not isinstance(manufacturers, dict):
+                msg = (
+                    f"'{category}' should contain manufacturers (an object), got "
+                    f"{type(manufacturers).__name__} — skipping this category entirely"
+                )
+                logger.warning(msg)
+                if errors_list is not None:
+                    errors_list.append(msg)
+                self._load_warnings.append(msg)
+                continue
             for manufacturer, products in manufacturers.items():
+                if not isinstance(products, dict):
+                    msg = (
+                        f"'{category}/{manufacturer}' should contain products (an object), got "
+                        f"{type(products).__name__} — skipping this manufacturer entirely"
+                    )
+                    logger.warning(msg)
+                    if errors_list is not None:
+                        errors_list.append(msg)
+                    self._load_warnings.append(msg)
+                    continue
                 for product, variants in products.items():
+                    if not isinstance(variants, dict):
+                        msg = (
+                            f"'{category}/{manufacturer}/{product}' should contain variants "
+                            f"(an object), got {type(variants).__name__} instead — this usually means "
+                            f"a variant level is missing (expected category/manufacturer/product/"
+                            f"variant/fields, four levels deep); skipping this product entirely"
+                        )
+                        logger.warning(msg)
+                        if errors_list is not None:
+                            errors_list.append(msg)
+                        self._load_warnings.append(msg)
+                        continue
                     for variant, json_defn in variants.items():
+                        if not isinstance(json_defn, dict):
+                            msg = (
+                                f"User board definition for {category}/{manufacturer}/{product}/{variant} "
+                                f"should be an object of fields, got {type(json_defn).__name__} instead — "
+                                f"this usually means a variant level is missing (expected category/"
+                                f"manufacturer/product/variant/fields, four levels deep); skipping..."
+                            )
+                            logger.warning(msg)
+                            if errors_list is not None:
+                                errors_list.append(msg)
+                            self._load_warnings.append(msg)
+                            continue
                         try:
                             board = BoardDefinition.from_data(
                                 manufacturer, product, variant, json_defn
@@ -76,6 +141,21 @@ class BoardDatabase(object):
                         except KeyError as e:
                             msg = (
                                 f"User board definition for {category}/{manufacturer}/{product}/{variant} is missing {e.args[0]}, skipping..."
+                            )
+                            logger.warning(msg)
+                            if errors_list is not None:
+                                errors_list.append(msg)
+                            self._load_warnings.append(msg)
+                            continue
+                        except (TypeError, AttributeError) as e:
+                            # Same class of bug as the isinstance() checks
+                            # above catch, but one level deeper — a field
+                            # that looked like a dict at this level (e.g.
+                            # "mcu") but has the wrong shape/keys inside
+                            # it once from_data() actually indexes into it.
+                            msg = (
+                                f"User board definition for {category}/{manufacturer}/{product}/{variant} "
+                                f"is malformed ({e}), skipping..."
                             )
                             logger.warning(msg)
                             if errors_list is not None:
