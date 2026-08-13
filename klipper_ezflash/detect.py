@@ -219,6 +219,22 @@ def list_serial_ports() -> List[Path]:
     are deduplicated by resolved target below, keeping one entry per
     unique underlying device rather than surfacing every alias as if it
     were a separate port.
+
+    Also always includes the SBC's own hardware UART device(s)
+    (/dev/ttyS*, /dev/ttyAMA*) alongside whatever USB-adapter ports were
+    found — e.g. a Raspberry Pi or BTT CB1/CB2's GPIO-header UART, once
+    the user has configured it themselves (the dtoverlay/armbianEnv.txt
+    setup needed to actually enable it is a separate, platform-specific
+    concern this function doesn't attempt; it only needs to be
+    selectable here once it exists as a device). Both ttyS* (generic
+    8250/16550-style naming) and ttyAMA* (ARM PL011 naming, what a
+    Raspberry Pi's GPIO UART is typically called once Bluetooth is freed
+    from it) are included since which name applies depends on the
+    platform/config. These are appended after the USB-adapter list
+    rather than being an either/or fallback, since both by-path and
+    by-id only ever contain USB-connected devices — a hardware UART
+    would otherwise be invisible any time a USB adapter was also plugged
+    in.
     """
     def _dedup_by_target(paths: List[Path]) -> List[Path]:
         seen_targets: dict = {}
@@ -230,22 +246,30 @@ def list_serial_ports() -> List[Path]:
             seen_targets.setdefault(real, p)
         return sorted(seen_targets.values())
 
+    usb_ports: List[Path] = []
     by_path = Path("/dev/serial/by-path")
     if by_path.exists():
-        ports = _dedup_by_target(sorted(by_path.iterdir()))
-        if ports:
-            return ports
-    by_id = Path("/dev/serial/by-id")
-    if by_id.exists():
-        ports = _dedup_by_target(sorted(by_id.iterdir()))
-        if ports:
-            return ports
-    # Fall back to /dev/ttyUSB*/ttyACM* if neither by-path nor by-id
-    # exist at all — very old systems/drivers.
+        usb_ports = _dedup_by_target(sorted(by_path.iterdir()))
+    if not usb_ports:
+        by_id = Path("/dev/serial/by-id")
+        if by_id.exists():
+            usb_ports = _dedup_by_target(sorted(by_id.iterdir()))
+    if not usb_ports:
+        dev = Path("/dev")
+        if dev.exists():
+            usb_ports = sorted(
+                p for p in dev.glob("tty*") if p.name.startswith(("ttyUSB", "ttyACM"))
+            )
+
+    hw_uart_ports: List[Path] = []
     dev = Path("/dev")
-    if not dev.exists():
-        return []
-    return sorted(p for p in dev.glob("tty*") if p.name.startswith(("ttyUSB", "ttyACM")))
+    if dev.exists():
+        hw_uart_ports = sorted(
+            p for p in dev.glob("tty*")
+            if p.name.startswith(("ttyS", "ttyAMA")) and p.is_char_device()
+        )
+
+    return usb_ports + hw_uart_ports
 
 
 def describe_serial_port(port: Path) -> str:
