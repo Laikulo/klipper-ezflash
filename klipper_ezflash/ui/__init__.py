@@ -1801,19 +1801,26 @@ class EZFlashApp(App):
         ]
         if not active:
             return True
-        proceed = await self.yesno(
-            f"WARNING:\n\n"
-            f"{' and '.join(s.capitalize() for s in active)} "
-            f"{'is' if len(active) == 1 else 'are'} currently running and it is recommended to stop "
-            f"{'it' if len(active) == 1 else 'them'} before flashing a board to prevent detection "
-            f"conflicts.\n\n"
-            "DO NOT STOP or flash while a print is running! Stopping the service(s) "
-            "will automatically crash any prints in progress.",
-            yes_label="Stop service(s) and flash",
-            no_label="Cancel flash",
-            default_no=True,
+        proceed = await self.button_menu(
+            choices=[
+                ("stop", "Stop service(s) and flash"),
+                ("skip", "Flash without stopping"),
+                ("cancel", "Cancel flash"),
+            ],
+            message=(
+                f"Warning:\n\n"
+                f"{' and '.join(s.capitalize() for s in active)} "
+                f"{'is' if len(active) == 1 else 'are'} currently running and it is recommended to stop "
+                f"{'it' if len(active) == 1 else 'them'} before flashing a board to prevent detection "
+                f"conflicts.\n\n"
+                "DO NOT STOP or flash while a print is running! Stopping the service(s) "
+                "will automatically crash any prints in progress."
+            ),
+            title="Warning",
         )
-        if not proceed:
+        if proceed == "skip":
+            return True
+        if proceed != "stop":
             return False
         try:
             with self.suspend():
