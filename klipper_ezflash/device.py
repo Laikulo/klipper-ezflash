@@ -124,9 +124,12 @@ def verify_bootloader_connected(mcu_arch: str, timeout: int = 30, settle_time: f
     blocking the flash.
     """
     deadline = time.time() + timeout
+    last_other: List[Dict[str, Any]] = []
     while time.time() < deadline:
         devices = scan_hardware_bootloader_devices()
         matching, other = _matching_and_other(devices, mcu_arch)
+        if other:
+            last_other = other
 
         if len(matching) > 1:
             raise _ambiguous_error(matching, mcu_arch)
@@ -147,4 +150,11 @@ def verify_bootloader_connected(mcu_arch: str, timeout: int = 30, settle_time: f
 
         time.sleep(1)
 
+    if last_other:
+        raw_list = "\n".join(f"  - {d['raw']}" for d in last_other)
+        raise EZFException(
+            f"No bootloader device detected for MCU '{mcu_arch}' within {timeout}s, "
+            f"but a different-architecture bootloader device was seen:\n{raw_list}\n\n"
+            "Double check you selected the right board — this may be the device you meant to flash."
+        )
     raise EZFException(f"No bootloader device detected for MCU '{mcu_arch}' within {timeout}s")
