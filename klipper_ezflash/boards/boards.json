@@ -1179,6 +1179,19 @@
           "can": "PB0/PB1",
           "usb": "PA11/PA12"
         }
+      },
+      "HBB": {
+        "HBB": {
+          "boot_method": "one_button",
+          "documentation": "https://github.com/bigtreetech/HBB",
+          "mcu": {
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {},
+          "status": "gpio7"
+        }
       }
     },
     "Fysetc": {
