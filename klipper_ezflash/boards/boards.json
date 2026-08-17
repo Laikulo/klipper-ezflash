@@ -1337,6 +1337,40 @@
           "status": "PA4",
           "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
         }
+      },
+      "V0 Display": {
+        "V0 Display": {
+          "boot_method": "jumper+reset",
+          "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/V0_Display",
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F042",
+            "clock": "INTERNAL"
+          },
+          "usb": "PA11/PA12",
+          "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
+        },
+        "V0 Micro Display": {
+          "boot_method": "jumper+reset",
+          "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/V0_Micro_Display",
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F042",
+            "clock": "INTERNAL"
+          },
+          "usb": "PA11/PA12",
+          "optional_features":["gpio", "lcd", "external-sensor"]
+        },
+        "V0 Display RP2040": {
+          "boot_method": "boot+reset",
+          "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/V0_Display_RP2040",
+          "mcu": {
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {}
+        }
       }
     }
   }
