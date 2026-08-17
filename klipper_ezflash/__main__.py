@@ -2,7 +2,7 @@ import logging
 
 from textual.logging import TextualHandler
 
-from .ui import main as ui_main
+from .ui.app import main as ui
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
     # EZFlashApp.launch() already checks for a previous session and offers
     # to resume it before showing the main menu, so no pre-launch resume
     # logic is needed here.
-    ui_main()
+    ui()
 
 
 if __name__ == "__main__":

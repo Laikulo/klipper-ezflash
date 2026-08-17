@@ -8,7 +8,7 @@ from pathlib import Path
 
 from importlib.resources import files
 
-from typing import Any
+from typing import Any, Optional
 from collections.abc import Collection
 
 _KATAPULT_CLONE_URL = "https://github.com/Arksine/katapult.git"
@@ -61,6 +61,40 @@ def find_katapult():
         # Check if it's a valid katapult checkout (has the repo's .git directory)
         if path.exists() and (path / ".git").exists():
             return path
+    return None
+
+
+def update_katapult(katapult_path: Path) -> Optional[str]:
+    """Run `git pull` in an existing katapult checkout.
+
+    Returns None on success, or a human-readable error message on
+    failure — never raises, matching find_katapult()'s own "return, don't
+    raise" convention for this kind of best-effort operation. Extracted
+    from app.py's check_katapult() so the actual git operation is pure,
+    UI-independent logic that can be called via asyncio.to_thread from
+    Textual (or tested/used standalone) without any dialog coupling.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(katapult_path), "pull"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return (result.stderr or f"Pull failed with exit code {result.returncode}").strip()
+    return None
+
+
+def clone_katapult(target: Path) -> Optional[str]:
+    """Clone katapult (from _KATAPULT_CLONE_URL) into `target`.
+
+    Returns None on success, or a human-readable error message on
+    failure. Same rationale as update_katapult() above.
+    """
+    result = subprocess.run(
+        ["git", "clone", _KATAPULT_CLONE_URL, str(target)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return (result.stderr or f"Clone failed with exit code {result.returncode}").strip()
     return None
 
 

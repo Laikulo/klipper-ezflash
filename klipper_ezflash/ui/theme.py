@@ -1,0 +1,102 @@
+"""
+Theme palette (dark gray + green) and the shared dialog stylesheet.
+
+Hardcoded literals rather than redefining Textual's built-in
+$accent/$panel/etc. tokens — safer across Textual versions than depending
+on exactly how the active theme's design tokens are meant to be
+overridden.
+"""
+
+from __future__ import annotations
+
+_BG = "#121212"        # app/screen background
+_PANEL = "#1c1c1c"      # dialog box / panel background
+_SURFACE = "#1a1a1a"    # nested surface (log, list) background
+_ACCENT = "#3ddc84"     # green accent (borders, titles, primary buttons)
+_ACCENT_HOVER = "#2fc774"
+_ACCENT_TEXT = "#08130c"  # dark text on top of the green accent
+_TEXT = "#e6e6e6"       # primary text
+_TEXT_DIM = "#8a9199"   # secondary/pending text
+_BTN_BG = "#2a2a2a"
+_BTN_HOVER = "#353535"
+_ERROR_BG = "#5c1f1f"
+_ERROR_TEXT = "#f4b4b4"
+
+DIALOG_CSS = f"""
+ModalScreen {{
+    align: center middle;
+    /* Explicit opaque background — Textual's default ModalScreen
+       background is a translucent scrim over whatever screen is
+       mounted below it, which is how a previous screen's leftover
+       content (e.g. amber step-list text from an earlier flash) could
+       show through around the edges of a dialog that doesn't fully
+       cover the terminal. Making this fully opaque means nothing from
+       underneath can bleed through, regardless of dialog width. */
+    background: {_BG};
+}}
+#dialog-box {{
+    /* Percentage width (clamped) instead of width:auto sized to content —
+       this is what actually fills the terminal instead of leaving a big
+       gap on one side; align:center middle above keeps it centered. */
+    width: 80%;
+    min-width: 50;
+    max-width: 120;
+    height: auto;
+    max-height: 90%;
+    border: solid {_ACCENT};
+    background: {_PANEL};
+    color: {_TEXT};
+    padding: 1 2;
+}}
+#dialog-title {{
+    text-style: bold;
+    color: {_ACCENT};
+    margin-bottom: 1;
+}}
+#dialog-body {{
+    margin-bottom: 1;
+}}
+#dialog-buttons {{
+    height: auto;
+    align: right middle;
+}}
+#dialog-buttons Button {{
+    margin-left: 1;
+}}
+ListView {{
+    height: auto;
+    max-height: 20;
+    background: {_SURFACE};
+}}
+ListItem {{
+    background: {_SURFACE};
+}}
+/* The selected/highlighted row in a ListView — Textual applies a
+   `--highlight` class to it. Without this rule the only cue was the
+   row's text going bold, which is easy to miss; this gives it the
+   same kind of solid highlight bar the old `dialog` UI had. */
+ListView > ListItem.--highlight {{
+    background: {_ACCENT};
+    color: {_ACCENT_TEXT};
+    text-style: bold;
+}}
+Button {{
+    background: {_BTN_BG};
+    color: {_TEXT};
+}}
+Button:hover {{
+    background: {_BTN_HOVER};
+}}
+Button.-primary {{
+    background: {_ACCENT};
+    color: {_ACCENT_TEXT};
+    text-style: bold;
+}}
+Button.-primary:hover {{
+    background: {_ACCENT_HOVER};
+}}
+Button.-error {{
+    background: {_ERROR_BG};
+    color: {_ERROR_TEXT};
+}}
+"""
