@@ -1291,22 +1291,6 @@
         }
       }
     },
-    "Klipper Expander": {
-      "Klipper Expander": {
-        "Klipper Expander": {
-          "boot_method": "jumper+reset",
-          "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/Klipper_Expander",
-          "mcu": {
-            "architecture": "STMicroelectronics STM32",
-            "mcu": "STM32F042",
-            "clock": "INTERNAL"
-          },
-          "usb": "PA11/PA12",
-          "status": "PA4",
-          "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
-        }
-      }
-    },
     "Provok3d": {
       "Therm^2": {
         "Therm^2": {
@@ -1336,6 +1320,22 @@
             "can_tx": "PB9"
           },
           "usb": "PA11/PA12"
+        }
+      }
+    },
+    "Voron Design": {
+      "Klipper Expander": {
+        "Klipper Expander": {
+          "boot_method": "jumper+reset",
+          "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/Klipper_Expander",
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F042",
+            "clock": "INTERNAL"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA4",
+          "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
         }
       }
     }
