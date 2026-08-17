@@ -474,7 +474,7 @@ class BoardCANDefinition(object):
             return cls(rx_pin=data["can_rx"], tx_pin=data["can_tx"])
 
     def as_interface(self):
-        return BoardInterfaceDefinition("CAN", {"tx": self.tx_pin, "rx": self.rx_pin})
+        return BoardInterfaceDefinition("CAN", {"rx": self.rx_pin, "tx": self.tx_pin})
 
 
 @dataclasses.dataclass
@@ -543,7 +543,7 @@ class BoardInterfaceDefinition(object):
         rather than folded into the plain "CAN" interface, so callers can
         tell the two apart (e.g. the UI's interface-selection menu, or
         deciding which flash path applies)."""
-        return cls("USB to CAN Bridge", {"tx": tx_pin, "rx": rx_pin})
+        return cls("USB to CAN Bridge", {"rx": rx_pin, "tx": tx_pin})
 
     def pretty(self):
         retstr = self.if_type
