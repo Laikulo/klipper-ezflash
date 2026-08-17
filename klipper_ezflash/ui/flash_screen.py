@@ -56,6 +56,29 @@ def _capture_output_to_log(screen: "FlashFlowScreen"):
                 screen.write(line)
 
 
+def _summarize_failure(argv: list[str], rc: int, output_lines: list[str]) -> str:
+    """Build a human-readable failure message for a failed command,
+    surfacing the actual error content instead of just the bare exit code.
+
+    Without this, a compile failure (e.g. a linker "region 'rom'
+    overflowed" error) surfaced only as "'make' failed (exit 2)" -- no
+    hint of *why*, leaving the retry dialog's only options as an identical
+    retry (which fails again for the same reason) or abort, with no way
+    to diagnose the problem from inside the app.
+
+    Prefers lines that look like the actual error (linker/compiler
+    errors), falling back to the last few lines of output if nothing
+    recognizable is found.
+    """
+    header = f"'{argv[0]}' failed (exit {rc})"
+    markers = ("overflowed", "error:", "Error:", "ERROR", "undefined reference", "No such file")
+    interesting = [line for line in output_lines if any(m in line for m in markers)]
+    tail = interesting[-6:] if interesting else output_lines[-10:]
+    if not tail:
+        return header
+    return header + "\n\n" + "\n".join(tail)
+
+
 class StepStatus(Enum):
     PENDING = "pending"
     ACTIVE = "active"
@@ -310,17 +333,29 @@ class FlashFlowScreen(Screen):
     async def run_make(self, title: str, cwd: Path, *make_args: str) -> None:
         """Run `make` in cwd, raising EZFException on non-zero exit."""
         self.write(f"\n[ {title} ]")
-        rc = await self.run_command("make", *make_args, cwd=cwd)
+        argv = ["make", *make_args]
+        self.write(f"$ {' '.join(shlex.quote(a) for a in argv)}")
+        output_lines: list[str] = []
+        rc = await self._stream_subprocess(argv, cwd=cwd, capture=output_lines)
         if rc != 0:
-            raise EZFException(f"'make {' '.join(make_args)}' failed (exit {rc}) in {cwd}")
+            raise EZFException(_summarize_failure(argv, rc, output_lines) + f" in {cwd}")
 
     async def run_argv(self, title: str, argv: list[str], cwd: Optional[Path] = None) -> None:
         """Run an arbitrary argv (e.g. from flash.py's command builders),
-        raising EZFException on non-zero exit."""
+        raising EZFException on non-zero exit.
+
+        Captures output (like run_argv_check_patterns already does) so a
+        failure's exception message can include the actual error content
+        -- e.g. a linker "region overflowed" line -- rather than just the
+        bare exit code, which otherwise leaves a retry dialog with nothing
+        actionable to go on.
+        """
         self.write(f"\n[ {title} ]")
-        rc = await self.run_command(*argv, cwd=cwd)
+        self.write(f"$ {' '.join(shlex.quote(a) for a in argv)}")
+        output_lines: list[str] = []
+        rc = await self._stream_subprocess(argv, cwd=cwd, capture=output_lines)
         if rc != 0:
-            raise EZFException(f"'{argv[0]}' failed (exit {rc})")
+            raise EZFException(_summarize_failure(argv, rc, output_lines))
 
     async def run_argv_check_patterns(self, title: str, argv: list[str], success_patterns: list[str], cwd: Optional[Path] = None) -> None:
         """Run an argv where a non-zero exit can still mean success (e.g.
@@ -337,4 +372,4 @@ class FlashFlowScreen(Screen):
         output = "\n".join(output_lines)
         if any(pattern in output for pattern in success_patterns):
             return
-        raise EZFException(f"'{argv[0]}' failed (exit {rc})")
+        raise EZFException(_summarize_failure(argv, rc, output_lines))

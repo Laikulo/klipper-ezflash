@@ -1348,7 +1348,7 @@
           },
           "usb": "PA11/PA12",
           "status": "PA4",
-          "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
+          "optional_features":["WANT_BUTTONS", "WANT_NEOPIXEL", "WANT_PULSE_COUNTER", "WANT_ST7920", "WANT_HD44780", "WANT_ADC", "WANT_SPI", "WANT_SOFTWARE_SPI", "WANT_I2C", "WANT_HARD_PWM"]
         }
       },
       "V0 Display": {
@@ -1361,7 +1361,7 @@
             "clock": "INTERNAL"
           },
           "usb": "PA11/PA12",
-          "optional_features":["gpio", "lcd", "external-sensor","sw-spi"]
+          "optional_features":["WANT_BUTTONS", "WANT_NEOPIXEL", "WANT_PULSE_COUNTER", "WANT_ST7920", "WANT_HD44780", "WANT_ADC", "WANT_SPI", "WANT_SOFTWARE_SPI", "WANT_I2C", "WANT_HARD_PWM"]
         },
         "V0 Micro Display": {
           "boot_method": "jumper+reset",
@@ -1372,7 +1372,7 @@
             "clock": "INTERNAL"
           },
           "usb": "PA11/PA12",
-          "optional_features":["gpio", "lcd", "external-sensor"]
+          "optional_features":["WANT_BUTTONS", "WANT_NEOPIXEL", "WANT_PULSE_COUNTER", "WANT_ST7920", "WANT_HD44780", "WANT_ADC", "WANT_I2C", "WANT_HARD_PWM"]
         },
         "V0 Display RP2040": {
           "boot_method": "boot+reset",

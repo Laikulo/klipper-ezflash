@@ -19,6 +19,14 @@ Fields for descriptiors:
 * klipper_options
   * serial_number - str
   * ... (per target)
+* optional_features
+  * List of exact Klipper Kconfig symbol names from the "Optional features
+    (to reduce code size)" menu in src/Kconfig (e.g. "WANT_NEOPIXEL",
+    "WANT_ST7920") -- NOT free-text tags. Only needed for small-flash MCUs
+    (e.g. STM32F042) where Klipper's defaults (everything on) overflow the
+    firmware. When present, every other optional-feature symbol is
+    disabled. See OPTIONAL_FEATURE_SYMBOLS in configurator.py
+    for the full known list.
 
 
 

@@ -25,6 +25,43 @@ _COMMS_MUNGES = (
     "Communications Interface",
 )
 
+# Every symbol under Klipper's "Optional features (to reduce code size)"
+# menu in src/Kconfig, as of the current upstream source. These all
+# default to enabled ('y') regardless of chip size -- the menu only makes
+# them *visible* for toggling on small-flash chips (HAVE_LIMITED_CODE_SIZE),
+# it doesn't disable anything by itself. See Configurator.set_optional_features().
+#
+# This is a snapshot of Klipper's Kconfig and can drift if upstream
+# renames/adds/removes symbols -- set_optional_features() validates against
+# it so a stale/misspelled boards.json entry fails loudly at configure time
+# instead of silently building with defaults.
+OPTIONAL_FEATURE_SYMBOLS = (
+    "WANT_ADC",
+    "WANT_SPI",
+    "WANT_SOFTWARE_SPI",
+    "WANT_I2C",
+    "WANT_SOFTWARE_I2C",
+    "WANT_HARD_PWM",
+    "WANT_BUTTONS",
+    "WANT_TMCUART",
+    "WANT_NEOPIXEL",
+    "WANT_PULSE_COUNTER",
+    "WANT_ST7920",
+    "WANT_HD44780",
+    "WANT_ADXL345",
+    "WANT_LIS2DW",
+    "WANT_BMI160",
+    "WANT_MPU9250",
+    "WANT_ICM20948",
+    "WANT_THERMOCOUPLE",
+    "WANT_HX71X",
+    "WANT_ADS131M0X",
+    "WANT_ADS1220",
+    "WANT_LDC1612",
+    "WANT_SENSOR_ANGLE",
+    "WANT_TRIGGER_ANALOG",
+)
+
 
 class ConfiguratorTarget(Enum):
     KLIPPER = 1
@@ -69,6 +106,8 @@ class Configurator(object):
                 self.set_startup_pins(board.startup_pins)
             if "rp2040" in board.mcu.arch.lower():
                 self.set_bootloader_offset()
+            if board.optional_features is not None:
+                self.set_optional_features(board.optional_features)
 
     def set_status_leds(self, gpio_spec: str):
         if self._target != ConfiguratorTarget.KATAPULT:
@@ -164,6 +203,44 @@ class Configurator(object):
                 opt.set_value(2)
                 return
         raise ValueError("Could not find a bootloader offset option to select")
+
+    def set_optional_features(self, features: Iterable[str]):
+        """Restrict Klipper's optional code-size-reducing features (the
+        WANT_* symbols under "Optional features (to reduce code size)" in
+        src/Kconfig) to exactly the given set, disabling every other known
+        optional feature.
+
+        These symbols all default to enabled ('y') in Klipper's own
+        Kconfig regardless of chip size -- the "Optional features" menu
+        only makes them visible/toggleable on small-flash chips, it
+        doesn't disable anything by itself. Left alone, a small-flash MCU
+        (e.g. STM32F042) tries to build with everything on and overflows
+        its .text region. This turns every known optional feature off
+        first, then re-enables exactly what the board declares it needs.
+
+        `features` must be exact Klipper Kconfig symbol names (e.g.
+        "WANT_NEOPIXEL"), not free-text tags -- validated against
+        OPTIONAL_FEATURE_SYMBOLS so a typo or a symbol renamed by a
+        Klipper update fails loudly at configure time instead of quietly
+        building with defaults.
+        """
+        wanted = set(features)
+        unknown = wanted - set(OPTIONAL_FEATURE_SYMBOLS)
+        if unknown:
+            raise ValueError(
+                f"Unknown optional_features symbol(s) {sorted(unknown)} for {self._board}; "
+                f"expected some subset of {OPTIONAL_FEATURE_SYMBOLS}"
+            )
+        for name in OPTIONAL_FEATURE_SYMBOLS:
+            sym = self.kconfig.symbol(name=name, allow_invisible=True)
+            if sym is None:
+                # Not a real symbol for this arch/build at all (e.g. gated
+                # behind a HAVE_* this MCU doesn't select) -- nothing to
+                # toggle, and not an error: OPTIONAL_FEATURE_SYMBOLS is a
+                # global list across all architectures, not every arch has
+                # every symbol.
+                continue
+            sym.set(name in wanted)
 
     def get_interfaces(self):
         return self._board.interfaces
