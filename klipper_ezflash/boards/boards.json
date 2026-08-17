@@ -776,8 +776,8 @@
             "flash": "w25q080"
           },
           "can": {
-            "can_rx": "8",
-            "can_tx": "9"
+            "can_rx": "gpio8",
+            "can_tx": "gpio9"
           },
           "usb": {}
         }
