@@ -820,6 +820,19 @@
           "usb": {},
           "status": "!gpio8"
         }
+      },
+      "Picobilical": {
+        "Picobilical": {
+          "boot_method": "boot+reset",
+          "documentation": "https://docs.ldomotors.com/voron/Picobilical",
+          "mcu": {
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {},
+          "status": "!gpio10"
+        }
       }
     },
     "OrbiterProjects": {
