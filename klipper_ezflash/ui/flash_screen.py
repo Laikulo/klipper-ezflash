@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import io
+import logging
 import shlex
 import tempfile
 from enum import Enum
@@ -32,8 +33,8 @@ from ..fault import EZFException
 
 @contextlib.contextmanager
 def _capture_output_to_log(screen: "FlashFlowScreen"):
-    """Redirect stdout/stderr into the flash screen's log for the
-    duration of the block.
+    """Redirect stdout/stderr AND klipper_ezflash's own logger.debug()
+    output into the flash screen's log for the duration of the block.
 
     Some synchronous library code we call into — notably kconfiglib, via
     Configurator/KConfig — prints warnings directly to stdout/stderr
@@ -44,12 +45,38 @@ def _capture_output_to_log(screen: "FlashFlowScreen"):
     reading from), but capturing and flushing it into the log after the
     fact at least keeps it inside the app instead of on the raw
     terminal, and it's still visible to the user.
+
+    Separately, Configurator._log_selection() logs every kconfig
+    choice/symbol it sets (arch, MCU, interface, etc.) via
+    logger.debug() on the 'klipper_ezflash' logger tree — normally
+    invisible here, since __main__.py's basicConfig sets the root logger
+    to INFO. For the duration of this block only, this attaches a
+    handler directly to the 'klipper_ezflash' logger and drops its level
+    to DEBUG, so that config-building detail lands in this same
+    transcript (on-screen and in log_path) right before the compile
+    steps that follow it, instead of being silently discarded.
     """
     buf = io.StringIO()
+
+    class _ScreenLogHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            try:
+                screen.write(self.format(record))
+            except Exception:
+                pass
+
+    pkg_logger = logging.getLogger("klipper_ezflash")
+    handler = _ScreenLogHandler(level=logging.DEBUG)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    prev_level = pkg_logger.level
+    pkg_logger.addHandler(handler)
+    pkg_logger.setLevel(logging.DEBUG)
     try:
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
             yield
     finally:
+        pkg_logger.removeHandler(handler)
+        pkg_logger.setLevel(prev_level)
         captured = buf.getvalue()
         if captured.strip():
             for line in captured.splitlines():

@@ -1,3 +1,4 @@
+import logging
 import os
 from os import PathLike
 from pathlib import Path
@@ -11,6 +12,8 @@ from kconfiglib import (
 )
 
 from .util import cajole_collection
+
+logger = logging.getLogger(__name__)
 
 
 class KConfig(object):
@@ -69,9 +72,15 @@ class KConfig(object):
                     if node.prompt[0] in prompt:
                         return KConfigChoice(self, choice)
             else:
-                for choice in self._choices(allow_invisible):
-                    for node in choice.nodes:
-                        print(node.prompt[0])
+                available = [
+                    node.prompt[0]
+                    for choice in self._choices(allow_invisible)
+                    for node in choice.nodes
+                ]
+                logger.debug(
+                    f"Did not find a choice with prompt(label) {prompt}; "
+                    f"available choices: {available!r}"
+                )
                 raise KeyError(f"Did not find a choice with prompt(label) {prompt}")
         else:
             raise ValueError(
@@ -114,7 +123,6 @@ class KConfigChoice(object):
             return "Unknown Choice"
 
     def values(self) -> List[str]:
-        print(prompt)
         return [x.name for x in self._choice.syms]
 
     def prompts(self) -> List[str]:

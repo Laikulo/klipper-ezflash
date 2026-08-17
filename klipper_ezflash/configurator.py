@@ -82,6 +82,12 @@ class Configurator(object):
             extra_config.set(True)
         self._load_from_board(board)
 
+    def _log_selection(self, label: str, value) -> None:
+        """Log the kconfig choice/symbol that was set, including the board and target for context.
+        """
+        target_name = self._target.name if self._target else "?"
+        logger.debug(f"[{self._board}/{target_name}] {label}: {value}")
+
     @classmethod
     def katapult(cls, source_path: PathLike, board: BoardDefinition) -> "Configurator":
         return cls(source_path, board, target=ConfiguratorTarget.KATAPULT)
@@ -91,6 +97,10 @@ class Configurator(object):
         return cls(source_path, board, target=ConfiguratorTarget.KLIPPER)
 
     def _load_from_board(self, board):
+        logger.debug(
+            f"[{board}/{self._target.name if self._target else '?'}] "
+            f"Building config: arch={board.mcu.arch} mcu={board.mcu.mcu}"
+        )
         self.set_arch(board.mcu.arch)
         self.set_mcu(board.mcu.mcu)
         if clock := board.mcu.clock:
@@ -114,24 +124,27 @@ class Configurator(object):
             raise ValueError("Status LEDs are only supported for Katapult")
         self.kconfig.symbol(prompt="Enable Status LED").set(True)
         self.kconfig.symbol(prompt="Status LED GPIO Pin").set(gpio_spec)
+        self._log_selection("Status LED GPIO Pin", gpio_spec)
 
     def set_startup_pins(self, gpio_spec: str):
         if self._target != ConfiguratorTarget.KLIPPER:
             raise ValueError("Startup pins are only supported for Klipper")
         self.kconfig.symbol(prompt="GPIO pins to set at micro-controller startup").set(gpio_spec)
+        self._log_selection("Startup pins", gpio_spec)
 
     def set_arch(self, arch):
         # Despite what the below says, we have to deal with differing titles for some arches
         arch = table_munge(arch, _ARCH_MUNGES)
         # Arch is pretty easy to deal with, since it is always the same prompt, but the choice is unnamed
         self.kconfig.choice(prompt="Micro-controller Architecture").select(prompt=arch)
+        self._log_selection("Micro-controller Architecture", arch)
 
     def set_mcu(self, mcu):
         if proc_choice := self.kconfig.choice(prompt="Processor model"):
             for possible_mcu in proc_choice.choices():
                 mcu_prompt = possible_mcu.nodes[0].prompt[0].split(" ")[0]
                 if mcu_prompt.upper() == mcu.upper():
-                    logger.debug(f"Selected {possible_mcu!r} for MCU specification {mcu}")
+                    self._log_selection("Processor model", mcu)
                     possible_mcu.set_value(2)
                     return
             raise RuntimeError(f"Unable to find matching MCU {mcu}")
@@ -143,7 +156,7 @@ class Configurator(object):
             # If the kconfig sets an 'MCU', and it is already correct, don't mess with it
             if mcu_sym := self.kconfig.symbol(name="MCU", allow_invisible=True):
                 if mcu_sym.get() == mcu:
-                    logger.debug(f"Static MCU model {mcu} selected")
+                    self._log_selection("MCU (static)", mcu)
                     return
             raise RuntimeError(
                 f"Could not set MCU type to {mcu}. Is it supported by this version of klipper?"
@@ -160,7 +173,7 @@ class Configurator(object):
         # Special case "INTERNAL"
         if freq == "INTERNAL":
             freq_choice.select(prompt="Internal clock")
-            logger.debug(f"Internal clock selected {freq_choice}")
+            self._log_selection(freq_choice.prompt, "Internal clock")
             return
         # Frequency should be in the form XXMhz or XXKhz
         if matches := FREQ_IN_RE.match(freq):
@@ -172,7 +185,7 @@ class Configurator(object):
         )
         for sym in freq_choice.choices():
             if target_re.match(sym.nodes[0].prompt[0]):
-                logger.debug(f"Selected {sym!r} for clock specification {freq}")
+                self._log_selection(freq_choice.prompt, freq)
                 sym.set_value(2)
                 return
         raise ValueError(f"Could not set frequency to {freq}")
@@ -181,7 +194,7 @@ class Configurator(object):
         if flash_choice := self.kconfig.choice(prompt="Flash chip"):
             for possible_flash in flash_choice.choices():
                 if possible_flash.nodes[0].prompt[0].lower().startswith(flash.lower()):
-                    logger.debug(f"Selected {possible_flash!r} for flash specification {flash}")
+                    self._log_selection("Flash chip", flash)
                     possible_flash.set_value(2)
                     return
             raise ValueError(
@@ -200,6 +213,7 @@ class Configurator(object):
             return
         for opt in offset_choice.choices():
             if "no bootloader" not in opt.nodes[0].prompt[0].lower():
+                self._log_selection(offset_choice.prompt, opt.nodes[0].prompt[0])
                 opt.set_value(2)
                 return
         raise ValueError("Could not find a bootloader offset option to select")
@@ -231,6 +245,7 @@ class Configurator(object):
                 f"Unknown optional_features symbol(s) {sorted(unknown)} for {self._board}; "
                 f"expected some subset of {OPTIONAL_FEATURE_SYMBOLS}"
             )
+        self._log_selection("Optional features (WANT_*)", sorted(wanted))
         for name in OPTIONAL_FEATURE_SYMBOLS:
             sym = self.kconfig.symbol(name=name, allow_invisible=True)
             if sym is None:
@@ -299,6 +314,9 @@ class Configurator(object):
             return False
         rx_sym.set(interface.pins["rx"].removeprefix("gpio"))
         tx_sym.set(interface.pins["tx"].removeprefix("gpio"))
+        self._log_selection(
+            "CAN RX/TX gpio number", f"{interface.pins['rx']}/{interface.pins['tx']}"
+        )
         return True
 
     def _set_can_interface_pins(self, interface: BoardInterfaceDefinition):
@@ -322,9 +340,11 @@ class Configurator(object):
             target_rev = f"CAN bus (on {tx}/{rx})"
             if target in prompts:
                 can_choice.select(prompt=target)
+                self._log_selection("CAN bus interface", target)
                 return
             if target_rev in prompts:
                 can_choice.select(prompt=target_rev)
+                self._log_selection("CAN bus interface", target_rev)
                 return
             raise RuntimeError(
                 f"'CAN bus interface' choice exists but has no option matching pins {rx}/{tx}"
@@ -376,6 +396,7 @@ class Configurator(object):
 
         if len(candidates) == 1:
             candidates[0].set_value(2)
+            self._log_selection(comms.prompt, candidates[0].nodes[0].prompt[0])
         else:
             # Multiple candidates — disambiguate using USB pin specs from boards.json.
             dm = usb_interface.pins.get("dm", "") if usb_interface else ""
@@ -392,6 +413,7 @@ class Configurator(object):
             for choice in candidates:
                 if pin_re.search(choice.nodes[0].prompt[0]):
                     choice.set_value(2)
+                    self._log_selection(comms.prompt, choice.nodes[0].prompt[0])
                     break
             else:
                 raise ValueError(
@@ -414,11 +436,14 @@ class Configurator(object):
         fixed_rev = f"CAN bus (on {tx}/{rx})"
         if fixed in prompts:
             comms.select(prompt=fixed)
+            self._log_selection(comms.prompt, fixed)
             return
         if fixed_rev in prompts:
             comms.select(prompt=fixed_rev)
+            self._log_selection(comms.prompt, fixed_rev)
             return
         comms.select(prompt="CAN bus")
+        self._log_selection(comms.prompt, "CAN bus")
         self._set_can_interface_pins(interface)
 
     def set_interface(self, interface: BoardInterfaceDefinition):
@@ -428,10 +453,11 @@ class Configurator(object):
         if if_type == "USB":
             if not interface.pins:
                 comms.select(prompt=("USB", "USBSERIAL"))
+                self._log_selection(comms.prompt, "USB")
             else:
-                comms.select(
-                    prompt=f"USB (on {interface.pins['dm']}/{interface.pins['dp']})"
-                )
+                usb_prompt = f"USB (on {interface.pins['dm']}/{interface.pins['dp']})"
+                comms.select(prompt=usb_prompt)
+                self._log_selection(comms.prompt, usb_prompt)
         elif if_type == "CAN":
             self._select_can_bus(interface)
         elif if_type == "USB to CAN Bridge":
@@ -452,6 +478,7 @@ class Configurator(object):
             for possible_comms in comms.choices():
                 if target_re.match(possible_comms.nodes[0].prompt[0]):
                     possible_comms.set_value(2)
+                    self._log_selection(comms.prompt, possible_comms.nodes[0].prompt[0])
                     break
             else:
                 raise ValueError(f"Serial not found {interface!r}")
@@ -477,6 +504,7 @@ class Configurator(object):
         if not prompt:
             raise ValueError("Attempted to set interface speed on a non-CAN/USB to CAN Bridge/UART interface")
         self.kconfig.symbol(prompt=prompt).set(str(speed))
+        self._log_selection(prompt, speed)
 
     def _header(self):
         return (
