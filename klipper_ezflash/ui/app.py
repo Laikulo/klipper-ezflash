@@ -143,44 +143,72 @@ class EZFlashApp(FlashFlowMixin, App):
     # ---- board selection wizard ---------------------------------------
 
     async def select_board(self):
+        """Manufacturer -> model -> (variant) wizard. Escape / the dialog's
+        Cancel-slot button steps back one level rather than aborting the
+        whole wizard outright — labeled "Back" on every step, including
+        the first (manufacturer), even though there's nothing earlier to
+        return to there; it exits the wizard entirely in that case,
+        returning None to the caller (both "Lookup information about a
+        board" and "Flash a board" already treat a None board as "user
+        backed out, do nothing further").
+        """
         if self._board_db is None:
             self._board_db = BoardDatabase()
         bdb = self._board_db
         boards = list(bdb.get_all())
 
         manufacturers = tuple(sorted(set(b.manufacturer for b in boards)))
-        tag = await self.menu(
-            choices=[(str(i), n) for i, n in enumerate(manufacturers)],
-            message="Select manufacturer",
-        )
-        if tag is None:
-            return None
-        selected_mfr = manufacturers[int(tag)]
+        selected_mfr: Optional[str] = None
+        selected_model: Optional[str] = None
 
-        mfr_models = tuple(sorted(set(b.model for b in boards if b.manufacturer == selected_mfr)))
-        tag = await self.menu(
-            choices=[(str(i), n) for i, n in enumerate(mfr_models)],
-            message="Select model",
-        )
-        if tag is None:
-            return None
-        selected_model = mfr_models[int(tag)]
+        # 0 = manufacturer, 1 = model, 2 = variant
+        step = 0
+        while True:
+            if step == 0:
+                tag = await self.menu(
+                    choices=[(str(i), n) for i, n in enumerate(manufacturers)],
+                    message="Select manufacturer",
+                    cancel_label="Back",
+                )
+                if tag is None:
+                    return None
+                selected_mfr = manufacturers[int(tag)]
+                step = 1
 
-        board_variants = tuple(sorted(set(
-            b.variant for b in boards if b.manufacturer == selected_mfr and b.model == selected_model
-        )))
-        if len(board_variants) > 1:
-            tag = await self.menu(
-                choices=[(str(i), n) for i, n in enumerate(board_variants)],
-                message="Select variant",
-            )
-            if tag is None:
-                return None
-            selected_variant = board_variants[int(tag)]
-        else:
-            selected_variant = board_variants[0]
+            elif step == 1:
+                mfr_models = tuple(sorted(set(b.model for b in boards if b.manufacturer == selected_mfr)))
+                tag = await self.menu(
+                    choices=[(str(i), n) for i, n in enumerate(mfr_models)],
+                    message="Select model",
+                    cancel_label="Back",
+                )
+                if tag is None:
+                    step = 0
+                    continue
+                selected_model = mfr_models[int(tag)]
 
-        return bdb.get_board(selected_mfr, selected_model, selected_variant)
+                board_variants = tuple(sorted(set(
+                    b.variant for b in boards if b.manufacturer == selected_mfr and b.model == selected_model
+                )))
+                if len(board_variants) > 1:
+                    step = 2
+                else:
+                    return bdb.get_board(selected_mfr, selected_model, board_variants[0])
+
+            elif step == 2:
+                board_variants = tuple(sorted(set(
+                    b.variant for b in boards if b.manufacturer == selected_mfr and b.model == selected_model
+                )))
+                tag = await self.menu(
+                    choices=[(str(i), n) for i, n in enumerate(board_variants)],
+                    message="Select variant",
+                    cancel_label="Back",
+                )
+                if tag is None:
+                    step = 1
+                    continue
+                selected_variant = board_variants[int(tag)]
+                return bdb.get_board(selected_mfr, selected_model, selected_variant)
 
     # ---- settings menu --------------------------------------------------
 

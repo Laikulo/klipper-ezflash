@@ -82,9 +82,14 @@ class FlashFlowMixin:
                     tag = await self.menu(
                         choices=[(str(i), if_.pretty()) for i, if_ in enumerate(ifaces)],
                         message="This board supports multiple interfaces. Which interface do you want to use?",
+                        cancel_label="Back",
                     )
                     if tag is None:
-                        return
+                        # Back to board selection, not out of the flash
+                        # flow entirely — mirrors select_board()'s own
+                        # step-back behavior instead of dropping the user
+                        # back at the main menu.
+                        continue
                     chosen_if_type = ifaces[int(tag)].if_type
                 else:
                     chosen_if_type = ifaces[0].if_type if ifaces else None

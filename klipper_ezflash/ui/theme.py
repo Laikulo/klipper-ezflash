@@ -71,11 +71,25 @@ ListView {{
 ListItem {{
     background: {_SURFACE};
 }}
-/* The selected/highlighted row in a ListView — Textual applies a
-   `--highlight` class to it. Without this rule the only cue was the
-   row's text going bold, which is easy to miss; this gives it the
-   same kind of solid highlight bar the old `dialog` UI had. */
-ListView > ListItem.--highlight {{
+/* The selected/highlighted row in a ListView — Textual's own
+   ListItem.watch_highlighted() (see _list_item.py in the installed
+   package) applies a SINGLE-dash `-highlight` class, not `--highlight`.
+   Both previous attempts here used `--highlight`, which never matched
+   anything — that's the entire reason no green ever appeared; it had
+   nothing to do with descendant vs. direct-child combinators (`>` is
+   in fact correct — ListView's own DEFAULT_CSS in _list_view.py
+   confirms ListItem is a direct child of ListView).
+
+   Two rules, mirroring Textual's own DEFAULT_CSS structure: one for
+   the focused ListView (full accent bar) and one for the
+   blurred/unfocused state (dimmer tint), so the bar doesn't fully
+   vanish just because the terminal window lost OS focus. */
+ListView > ListItem.-highlight {{
+    background: {_ACCENT} 50%;
+    color: {_TEXT};
+    text-style: bold;
+}}
+ListView:focus > ListItem.-highlight {{
     background: {_ACCENT};
     color: {_ACCENT_TEXT};
     text-style: bold;

@@ -226,6 +226,17 @@ class ChoiceDialog(_DialogActions, ModalScreen[Optional[str]]):
             with Horizontal(id="dialog-buttons"):
                 yield Button(_mnemonic_label(self._cancel_label), id="cancel")
 
+    def on_mount(self) -> None:
+        # Without this, the ListView never gains focus on open, so
+        # Textual never applies the `-highlight` class to any row (see
+        # the `ListView > ListItem.-highlight` rule in theme.py) — the
+        # menu renders with no highlighted row at all until the user
+        # first presses an arrow key.
+        list_view = self.query_one(ListView)
+        if self._choices:
+            list_view.index = 0
+        list_view.focus()
+
     def on_key(self, event: events.Key) -> None:
         char = event.character
         if not char or len(char) != 1 or not char.isalnum():
