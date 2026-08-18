@@ -218,10 +218,6 @@ main() {
   # Install udev rules for ST DFU so dfu-util can run without sudo
   install_udev_rules
 
-  # Set up host CAN networking (systemd-networkd, udev tx_queue_len rule,
-  # default bit rate) per https://canbus.esoterical.online/Getting_Started.html
-  configure_can_networking
-
   dialog --clear --msgbox "Installation complete!" 5 30
   clear
 }
@@ -245,42 +241,6 @@ UDEVEOF"
   become udevadm control --reload-rules
   become udevadm trigger
   log "udev rule installed"
-}
-
-configure_can_networking() {
-  # Set up host CAN networking per
-  # https://canbus.esoterical.online/Getting_Started.html — default speed
-  # is 1M bps; the app's own "Prepare host OS for CAN" menu item and its
-  # automatic pre-flash check use InterfaceSettings().can_speed and can
-  # re-sync these files afterward if that's changed.
-  log "Enabling systemd-networkd"
-  become systemctl enable systemd-networkd
-  become systemctl start systemd-networkd
-  become systemctl disable systemd-networkd-wait-online.service
-
-  local canrule="/etc/udev/rules.d/10-can.rules"
-  log "Installing CAN udev rule $canrule"
-  become sh -c "cat > $canrule <<'CANUDEVEOF'
-SUBSYSTEM==\"net\", ACTION==\"change|add\", KERNEL==\"can*\"  ATTR{tx_queue_len}=\"128\"
-CANUDEVEOF"
-
-  local cannetwork="/etc/systemd/network/25-can.network"
-  log "Installing CAN network config $cannetwork"
-  become sh -c "cat > $cannetwork <<'CANNETEOF'
-[Match]
-Name=can*
-
-[CAN]
-BitRate=1000000
-
-[Link]
-RequiredForOnline=no
-CANNETEOF"
-
-  become udevadm control --reload-rules
-  become udevadm trigger
-  become networkctl reload
-  log "CAN networking installed"
 }
 
 trap handle_exit EXIT
