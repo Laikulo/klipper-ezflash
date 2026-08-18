@@ -16,7 +16,7 @@ from textual.widgets import Footer, Header, LoadingIndicator
 
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
-from ..util import find_katapult, _KATAPULT_CLONE_URL, check_can_host_state, fix_can_host_state, start_services, update_katapult, clone_katapult as _clone_katapult_repo
+from ..util import find_katapult, _KATAPULT_CLONE_URL, check_can_host_state, fix_can_host_state, check_uart_host_state, fix_uart_host_state, reboot_host, start_services, update_katapult, clone_katapult as _clone_katapult_repo
 from ..session import load_session
 from .. import detect as detect_mod
 from .theme import _BG, _PANEL, _TEXT, _ACCENT
@@ -356,6 +356,48 @@ class EZFlashApp(FlashFlowMixin, App):
         except Exception as e:
             await self.msgbox(f"Failed to fix host CAN networking:\n\n{e}", title="CAN host state")
 
+    # ---- UART host configuration menu --------------------------------
+
+    async def configure_uart_host_menu(self) -> None:
+        problems = await asyncio.to_thread(check_uart_host_state)
+        if not problems:
+            await self.msgbox(
+                "Host looks correctly configured for hardware UART.",
+                title="UART host state",
+            )
+            return
+        problem_list = "\n".join(f"  - {p}" for p in problems)
+        proceed = await self.yesno(
+            f"Found issues with the host's UART setup:\n\n{problem_list}\n\n"
+            "Fix what's fixable now? (sudo password may be required)",
+            yes_label="Fix",
+            no_label="Cancel",
+            default_no=True,
+        )
+        if not proceed:
+            return
+        try:
+            with self.suspend():
+                print("\nApplying host UART changes — you may be prompted for your sudo password below.\n")
+                skipped, reboot_required = fix_uart_host_state()
+            msg = "Host UART configuration has been updated."
+            if skipped:
+                msg += "\n\nNot checked/fixed (unsupported host):\n" + "\n".join(f"  - {s}" for s in skipped)
+            await self.msgbox(msg, title="UART host state")
+            if reboot_required:
+                do_reboot = await self.yesno(
+                    "A reboot is required for these changes to take effect. Reboot now?",
+                    yes_label="Reboot",
+                    no_label="Later",
+                    default_no=True,
+                )
+                if do_reboot:
+                    with self.suspend():
+                        print("\nRebooting — you may be prompted for your sudo password below.\n")
+                        reboot_host()
+        except Exception as e:
+            await self.msgbox(f"Failed to fix host UART configuration:\n\n{e}", title="UART host state")
+
     # ---- top-level menu loop ------------------------------------------
 
     async def menus(self) -> None:
@@ -366,6 +408,7 @@ class EZFlashApp(FlashFlowMixin, App):
                     ("flash", "Flash a board"),
                     ("settings", "Edit the default communication settings"),
                     ("preparecan", "Prepare host OS for CAN"),
+                    ("configureuart", "Configure host for hardware UART"),
                     ("crash", "Intentionally crash"),
                     ("exit", "Exit"),
                 ],
@@ -384,6 +427,8 @@ class EZFlashApp(FlashFlowMixin, App):
                 await self.settings_menu()
             elif tag == "preparecan":
                 await self.prepare_can_host_menu()
+            elif tag == "configureuart":
+                await self.configure_uart_host_menu()
             elif tag == "flash":
                 try:
                     await self.start_flash_flow()
