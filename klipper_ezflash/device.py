@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .fault import EZFException
 from .util import find_tool, run_captured
@@ -100,6 +100,30 @@ def _ambiguous_error(devices: List[Dict[str, Any]], mcu_arch: str) -> EZFExcepti
         "Remove the extra device(s) so only the board you want to flash "
         "remains connected, then retry."
     )
+
+
+def check_bootloader_already_present(mcu_arch: str) -> Optional[Dict[str, Any]]:
+    """One-shot, non-waiting check for whether a bootloader device
+    matching `mcu_arch` is already connected (e.g. a power user who put
+    the board into bootloader mode before starting the flash flow).
+
+    Reuses the same matching/ambiguity logic as verify_bootloader_connected
+    so "what counts as a matching/ambiguous device" is defined in exactly
+    one place. Returns None if nothing matches yet — that's the normal
+    case, not an error, and callers should fall through to showing the
+    board-prep instructions and waiting via verify_bootloader_connected.
+
+    Raises EZFException if more than one matching device is already
+    present, for the same "can't safely pick one" reasoning as
+    verify_bootloader_connected — no reason to wait for that to resolve
+    itself, it needs the user to unplug the extra device regardless of
+    which check catches it.
+    """
+    devices = scan_hardware_bootloader_devices()
+    matching, _other = _matching_and_other(devices, mcu_arch)
+    if len(matching) > 1:
+        raise _ambiguous_error(matching, mcu_arch)
+    return matching[0] if matching else None
 
 
 def verify_bootloader_connected(mcu_arch: str, timeout: int = 30, settle_time: float = 1.5) -> Dict[str, Any]:

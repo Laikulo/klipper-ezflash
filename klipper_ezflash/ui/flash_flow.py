@@ -366,28 +366,40 @@ class FlashFlowMixin:
                     if session.step_index <= 3:
                         arch = (session.mcu_arch or "").lower()
 
-                        # --- Placeholder: tell the user to physically put the
-                        # board into bootloader mode before we go looking for
-                        # it. This blocks (via msgbox) so they have a chance
-                        # to act on it before verification/flashing proceeds.
-                        if "rp2040" in arch or "rp2" in arch:
-                            bootloader_hint = (
-                                "Hold the BOOTSEL button while plugging the board in "
-                                "(or hold BOOTSEL and tap RESET) to enter RP2 bootloader mode."
-                            )
-                        elif "stm32" in arch:
-                            bootloader_hint = (
-                                "Set the BOOT0 jumper/pin and power-cycle the board "
-                                "to enter STM32 DFU mode."
-                            )
-                        else:
-                            bootloader_hint = "Put the board into its bootloader mode."
-                        await self.msgbox(
-                            f"Prepare the board for flashing:\n\n{bootloader_hint}\n\n"
-                            "Once it's in bootloader mode, press OK to continue.",
-                            title="Bootloader Mode Required",
+                        # If a matching bootloader device is already sitting
+                        # connected (e.g. a power user who put the board into
+                        # bootloader mode before starting this flash), skip
+                        # the "go put your board into bootloader mode"
+                        # instructions entirely — they'd just be asking the
+                        # user to redo something already done. Only shown
+                        # when nothing matching is present yet.
+                        already_present = await asyncio.to_thread(
+                            device_mod.check_bootloader_already_present, session.mcu_arch
                         )
+                        if already_present is None:
+                            if "rp2040" in arch or "rp2" in arch:
+                                bootloader_hint = (
+                                    "Hold the BOOTSEL button while plugging the board in "
+                                    "(or hold BOOTSEL and tap RESET) to enter RP2 bootloader mode."
+                                )
+                            elif "stm32" in arch:
+                                bootloader_hint = (
+                                    "Set the BOOT0 jumper/pin and power-cycle the board "
+                                    "to enter STM32 DFU mode."
+                                )
+                            else:
+                                bootloader_hint = "Put the board into its bootloader mode."
+                            await self.msgbox(
+                                f"Prepare the board for flashing:\n\n{bootloader_hint}\n\n"
+                                "Once it's in bootloader mode, press OK to continue.",
+                                title="Bootloader Mode Required",
+                            )
 
+                        # Either way, still confirm via verify_bootloader_connected
+                        # below — its settle/recheck window is what actually
+                        # debounces a device that just appeared (or that was
+                        # already present but about to disappear/re-enumerate),
+                        # rather than trusting either check on its own.
                         screen.start_step(3, "Re-checking bootloader before flashing. Please keep the device connected.")
                         stable_dev = await asyncio.to_thread(device_mod.verify_bootloader_connected, session.mcu_arch)
                         session.detected_devices.append(stable_dev)
