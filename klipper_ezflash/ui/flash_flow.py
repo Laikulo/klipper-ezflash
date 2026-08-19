@@ -28,7 +28,25 @@ from .. import device as device_mod
 from .. import flash as flash_mod
 from .. import detect as detect_mod
 from ..fault import EZFException, AmbiguousCanUuidException
-from .flash_screen import FlashFlowScreen, StepStatus, _capture_output_to_log
+from .flash_screen import FlashFlowScreen, CompletionScreen, StepStatus, _capture_output_to_log
+
+
+def _build_mcu_snippet(*, klipper_serial: Optional[str] = None, uart_serial: Optional[str] = None, can_uuid: Optional[str] = None, katapult_serial: Optional[str] = None) -> Optional[str]:
+    """Build a ready-to-paste printer.cfg [mcu] snippet for this flash session.
+
+    `katapult_serial`, when available, is included as a comment above the
+    serial:/canbus_uuid: line — the katapult (bootloader-mode) path is
+    what future update_klipper_and_mcus-style re-flashes will need, and
+    it's otherwise not shown anywhere in the final printer.cfg.
+    """
+    comment = f"# katapult path for updating {katapult_serial}\n" if katapult_serial else ""
+    if can_uuid:
+        return f"[mcu]\n{comment}canbus_uuid: {can_uuid}"
+    if uart_serial:
+        return f"[mcu]\n{comment}serial: {uart_serial}"
+    if klipper_serial:
+        return f"[mcu]\n{comment}serial: {klipper_serial}"
+    return None
 
 
 def _valid_cached_binary(path: Optional[Path], hash_str: Optional[str]) -> Optional[Path]:
@@ -59,11 +77,13 @@ class FlashFlowMixin:
     self._stopped_services."""
 
     FLASH_STEP_NAMES = [
+        "Prepare config files",
         "Compile bootloader",
         "Compile firmware ",
-        "Verify device connection",
+        "Detect bootROM device",
         "Flash bootloader",
         "Flash firmware",
+        "Finalizing",
     ]
 
     async def start_flash_flow(self, resume_session: Optional[SessionData] = None) -> None:
@@ -133,16 +153,20 @@ class FlashFlowMixin:
                     speed_line = f"\nUART baud rate: {InterfaceSettings().uart_baudrate} baud"
                 summary = f"{board.pretty()}\nSelected interface: {iface_label}{speed_line}\n"
                 tag = await self.button_menu(
-                    choices=[("begin", "Begin Flash"), ("reselect", "Reselect board/interface")],
+                    choices=[("begin", "Begin Flash")],
                     message=summary,
                     title="Confirm Board & Interface",
+                    cancel_label="Back",
                 )
                 if tag == "begin":
                     break
-                elif tag == "reselect":
-                    continue
                 else:
-                    return
+                    # "reselect" or Escape/Back (tag is None) both mean the
+                    # same thing here: go back to reselecting board/
+                    # interface rather than abandoning the flash flow
+                    # entirely, mirroring the step-back convention used
+                    # everywhere else in this wizard.
+                    continue
 
             # Capture the currently-configured speed for this interface
             # into the session now — so a resumed session (e.g. after a
@@ -180,7 +204,7 @@ class FlashFlowMixin:
             # symptom this fixes.
             chosen_if_type = session.interface if session.interface else None
 
-        if session.step_index >= 4:
+        if session.step_index >= 6:
             await self.msgbox("A previously completed flash session was found. Starting fresh.")
             try:
                 clear_session()
@@ -235,14 +259,16 @@ class FlashFlowMixin:
                             flash_mod.klipper_output_path(firmware_path), session.firmware_bin_hash
                         )
 
-                        # Board/Configurator setup is only needed if we're
-                        # actually recompiling something — a fully-cached
-                        # resume (e.g. the user rewired a CAN toolhead
-                        # board and restarted the app, with no other build
-                        # having touched these outputs since) skips this
+                        # Board/Configurator setup + writing the .config
+                        # files is only needed if we're actually
+                        # recompiling something — a fully-cached resume
+                        # (e.g. the user rewired a CAN toolhead board and
+                        # restarted the app, with no other build having
+                        # touched these outputs since) skips this
                         # entirely.
                         bootloader_config = firmware_config = None
                         if cached_bootloader is None or cached_firmware is None:
+                            screen.start_step(0)
                             from ..configurator import Configurator
 
                             if board is None:
@@ -288,17 +314,27 @@ class FlashFlowMixin:
                                     if firmware_iface.if_type in ("CAN", "UART", "USB to CAN Bridge") and session.interface_speed:
                                         firmware_config.set_interface_speed(session.interface_speed)
 
-                        # --- Step 0: compile bootloader (skip if the
+                                # Prepare ends once the kconfigs are
+                                # written to disk — compiling starts
+                                # clean from here.
+                                if cached_bootloader is None:
+                                    bootloader_config.save_config(katapult_path / ".config")
+                                if cached_firmware is None:
+                                    firmware_config.save_config(firmware_path / ".config")
+                            screen.set_step(0, StepStatus.DONE)
+                        else:
+                            screen.start_step(0, "Bootloader and firmware outputs unchanged since last run — nothing to prepare.")
+                            screen.set_step(0, StepStatus.DONE)
+
+                        # --- Step 1: compile bootloader (skip if the
                         # cached output from a previous run is still
                         # byte-for-byte unchanged) ---
                         if cached_bootloader is not None:
-                            screen.start_step(0, f"Bootloader output unchanged since last run — skipping recompile.\n{cached_bootloader}")
+                            screen.start_step(1, f"Bootloader output unchanged since last run — skipping recompile.\n{cached_bootloader}")
                             bootloader_bin = cached_bootloader
-                            screen.set_step(0, StepStatus.DONE)
+                            screen.set_step(1, StepStatus.DONE)
                         else:
-                            screen.start_step(0)
-                            with _capture_output_to_log(screen):
-                                bootloader_config.save_config(katapult_path / ".config")
+                            screen.start_step(1)
                             await screen.run_argv("Cleaning katapult...", flash_mod.MAKE_CLEAN_ARGS, cwd=katapult_path)
                             await screen.run_argv("Compiling katapult...", flash_mod.MAKE_BUILD_ARGS, cwd=katapult_path)
                             bootloader_bin = flash_mod.katapult_output_path(katapult_path)
@@ -306,19 +342,17 @@ class FlashFlowMixin:
                                 raise EZFException(f"Expected katapult binary not found at {bootloader_bin}")
                             session.bootloader_bin_hash = file_sha256(bootloader_bin)
                             save_session(session)
-                            screen.set_step(0, StepStatus.DONE)
+                            screen.set_step(1, StepStatus.DONE)
 
-                        # --- Step 1: compile firmware (skip if the
+                        # --- Step 2: compile firmware (skip if the
                         # cached output from a previous run is still
                         # byte-for-byte unchanged) ---
                         if cached_firmware is not None:
-                            screen.start_step(1, f"Firmware output unchanged since last run — skipping recompile.\n{cached_firmware}")
+                            screen.start_step(2, f"Firmware output unchanged since last run — skipping recompile.\n{cached_firmware}")
                             firmware_bin = cached_firmware
-                            screen.set_step(1, StepStatus.DONE)
+                            screen.set_step(2, StepStatus.DONE)
                         else:
-                            screen.start_step(1)
-                            with _capture_output_to_log(screen):
-                                firmware_config.save_config(firmware_path / ".config")
+                            screen.start_step(2)
                             await screen.run_argv("Cleaning klipper...", flash_mod.MAKE_CLEAN_ARGS, cwd=firmware_path)
                             await screen.run_argv("Compiling firmware...", flash_mod.MAKE_BUILD_ARGS, cwd=firmware_path)
                             firmware_bin = flash_mod.klipper_output_path(firmware_path)
@@ -327,9 +361,9 @@ class FlashFlowMixin:
                                 raise EZFException(f"Expected klipper firmware at one of {candidates}")
                             session.firmware_bin_hash = file_sha256(firmware_bin)
                             save_session(session)
-                            screen.set_step(1, StepStatus.DONE)
+                            screen.set_step(2, StepStatus.DONE)
 
-                    if session.step_index <= 2:
+                    if session.step_index <= 3:
                         arch = (session.mcu_arch or "").lower()
 
                         # --- Placeholder: tell the user to physically put the
@@ -354,7 +388,7 @@ class FlashFlowMixin:
                             title="Bootloader Mode Required",
                         )
 
-                        screen.start_step(2, "Re-checking bootloader before flashing. Please keep the device connected.")
+                        screen.start_step(3, "Re-checking bootloader before flashing. Please keep the device connected.")
                         stable_dev = await asyncio.to_thread(device_mod.verify_bootloader_connected, session.mcu_arch)
                         session.detected_devices.append(stable_dev)
                         save_session(session)
@@ -378,9 +412,9 @@ class FlashFlowMixin:
                                 title="Other bootloader device detected",
                             )
 
-                        screen.set_step(2, StepStatus.DONE)
+                        screen.set_step(3, StepStatus.DONE)
 
-                        screen.start_step(3)
+                        screen.start_step(4)
                         # Snapshot any katapult_ devices already present
                         # BEFORE flashing — this is what lets us wait for
                         # the newly re-enumerated device specifically
@@ -400,13 +434,13 @@ class FlashFlowMixin:
                             )
                         else:
                             raise EZFException("Unsupported MCU architecture for automatic katapult flash")
-                        screen.set_step(3, StepStatus.DONE)
+                        screen.set_step(4, StepStatus.DONE)
 
-                        session.step_index = 3
+                        session.step_index = 4
                         save_session(session)
 
-                    if session.step_index <= 3:
-                        screen.start_step(4)
+                    if session.step_index <= 4:
+                        screen.start_step(5)
                         iface = (session.interface or "USB")
                         is_canbridge = "USB to CAN Bridge" in iface
                         is_can_only = ("CAN" in iface) and not is_canbridge
@@ -563,7 +597,17 @@ class FlashFlowMixin:
                                     known_klipper_devs = await asyncio.to_thread(detect_mod.detect_usb_serial, lambda p: "Klipper_" in p.name)
                                 await screen.run_argv("Flashing firmware via Katapult...", argv)
                                 firmware_flashed = True
+                        screen.set_step(5, StepStatus.DONE)
 
+                        # --- Step 6: Finalizing (wait for the board to
+                        # come back up under its new firmware, then build
+                        # and show the completion message). CAN-only and
+                        # UART flashes have nothing further to wait for —
+                        # the flash command itself was the last thing
+                        # that could fail — so this step is effectively
+                        # instant for those interfaces. ---
+                        screen.start_step(6)
+                        if not is_can_only and not is_uart:
                             if is_canbridge:
                                 if detected_can_iface is None:
                                     screen.write("Waiting for the board to reboot as a CAN-bridge network interface...")
@@ -606,12 +650,13 @@ class FlashFlowMixin:
                                 can_uid, _fw_type = result
                                 screen.write(f"Detected klipper-mode CAN-bridge device: UUID {can_uid} on {detected_can_iface}")
                             else:
+                                screen.write("Waiting for the device to reboot and reappear as a Klipper device....")
                                 klipper_dev = await asyncio.to_thread(detect_mod.wait_for_klipper_device, known=known_klipper_devs, timeout=10.0)
                                 if not klipper_dev:
                                     raise EZFException("No Klipper device detected after flashing.\n\nPlease check the connection.")
                                 klipper_path = str(klipper_dev)
-                        screen.set_step(4, StepStatus.DONE)
-                        session.step_index = 4
+                        screen.set_step(6, StepStatus.DONE)
+                        session.step_index = 6
                         save_session(session)
 
                     try:
@@ -630,27 +675,49 @@ class FlashFlowMixin:
                     is_canbridge = "USB to CAN Bridge" in iface
                     is_can_only = ("CAN" in iface) and not is_canbridge
                     is_uart = "UART" in iface
-                    summary_lines = ["Flash flow completed successfully."]
+                    config_snippet = None
+                    warning_lines = []
                     if is_canbridge:
-                        if katapult_serial_path:
-                            summary_lines.append(f"Katapult serial: {katapult_serial_path}")
                         if can_uid:
-                            summary_lines.append(f"CAN UUID: {can_uid}")
+                            config_snippet = _build_mcu_snippet(can_uuid=can_uid, katapult_serial=katapult_serial_path)
                     elif is_can_only:
                         if can_uid:
-                            summary_lines.append(f"CAN UUID: {can_uid}")
+                            config_snippet = _build_mcu_snippet(can_uuid=can_uid)
                     elif is_uart:
                         if uart_port:
-                            summary_lines.append(f"Serial port: {uart_port}")
+                            config_snippet = _build_mcu_snippet(uart_serial=uart_port)
+                            # /dev/serial/by-path/ encodes USB topology (which
+                            # physical port/hub the adapter is plugged into),
+                            # not the adapter's own identity — unlike by-id,
+                            # this path can change later if the adapter gets
+                            # moved to a different port or a hub is added or
+                            # removed, silently breaking printer.cfg's serial:
+                            # line at that point.
+                            if "/by-path/" in uart_port:
+                                warning_lines.append(
+                                    "Note: this is a /dev/serial/by-path/ path, which reflects USB "
+                                    "topology rather than the adapter itself. If the port ordering "
+                                    "changes later (adapter moved to a different port, a hub "
+                                    "added/removed), this path can change and printer.cfg's serial: "
+                                    "line will need updating to match."
+                                )
                     else:
-                        if katapult_serial_path:
-                            summary_lines.append(f"Katapult serial: {katapult_serial_path}")
                         if klipper_path:
-                            summary_lines.append(f"Klipper serial: {klipper_path}")
-                    summary = "\n".join(summary_lines)
+                            config_snippet = _build_mcu_snippet(klipper_serial=klipper_path, katapult_serial=katapult_serial_path)
 
-                    screen.write(f"\n{summary}")
-                    await self.msgbox(summary, title="Done")
+                    final_parts = ["Flash flow completed successfully."]
+                    if config_snippet:
+                        final_parts.append(
+                            "To add this MCU into your printer.cfg, copy the following section into "
+                            "the config. Note, if this is not the main MCU, you will need to add a "
+                            "name for the MCU such as [mcu toolhead]"
+                        )
+                        final_parts.append("\n" + config_snippet + "\n")
+                    final_parts.extend(warning_lines)
+                    final_text = "\n\n".join(final_parts)
+
+                    screen.write(final_text)
+                    await self.push_screen_wait(CompletionScreen(final_text, config_snippet=config_snippet))
                     return
 
                 except Exception as e:

@@ -532,7 +532,13 @@ class EZFlashApp(FlashFlowMixin, App):
 
 def main() -> None:
     app = EZFlashApp()
-    app.run()
+    # mouse=False: this app is fully keyboard-navigable (arrow keys, Enter,
+    # mnemonic letters, type-ahead — see dialogs.py), so nothing is lost by
+    # skipping mouse tracking entirely. The real win: without the mouse-
+    # tracking-enable escape sequence, Terminal.app never leaves native
+    # click-and-drag selection mode, so a plain drag + Cmd+C copies the
+    # completion text directly — no Fn+drag workaround needed.
+    app.run(mouse=False)
     if app._stopped_services:
         # Runs after Textual has fully torn down and the terminal is back
         # to normal (app.run() is synchronous and blocks until exit) —

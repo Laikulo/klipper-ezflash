@@ -12,6 +12,7 @@ from __future__ import annotations
 _BG = "#121212"        # app/screen background
 _PANEL = "#1c1c1c"      # dialog box / panel background
 _SURFACE = "#1a1a1a"    # nested surface (log, list) background
+_CALLOUT = "#242424"   # standalone callout/card background (completion-screen)
 _ACCENT = "#3ddc84"     # green accent (borders, titles, primary buttons)
 _ACCENT_HOVER = "#2fc774"
 _ACCENT_TEXT = "#08130c"  # dark text on top of the green accent

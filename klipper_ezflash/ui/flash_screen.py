@@ -27,7 +27,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import Footer, Header, RichLog, Static
 
-from .theme import _BG, _PANEL, _SURFACE, _TEXT, _TEXT_DIM, _ACCENT
+from .theme import _BG, _PANEL, _SURFACE, _CALLOUT, _TEXT, _TEXT_DIM, _ACCENT
 from ..fault import EZFException
 
 
@@ -145,6 +145,112 @@ class StepList(Static):
             glyph, style = _STATUS_GLYPH[self._status[i]]
             lines.append(f"[{style}]{glyph}  {name}[/]")
         return "\n".join(lines)
+
+
+class CompletionScreen(Screen[None]):
+    """Full-screen view for the final flash summary — has a Header for
+    visual consistency with FlashFlowScreen, but deliberately no Footer,
+    step-list pane, or CSS border (unlike the modal dialogs in
+    dialogs.py). On macOS Terminal.app, getting native terminal text
+    selection at all inside a Textual app requires holding Fn while
+    dragging (Option is iTerm2's equivalent), and even then a
+    drag-selection captures every visible character, border glyphs
+    included. Keeping this screen down to just Header + the completion
+    text (plus a one-line hint) means a Fn-drag selection of the body
+    captures exactly the completion message and nothing else — no footer
+    keybinding hints, no border-right from a step-list pane, no
+    box-drawing dialog border.
+
+    When `config_snippet` is given, it's rendered in its own zero-
+    horizontal-padding Static rather than folded into the same padded
+    block as the surrounding prose — leaving the intro/outro at their
+    original padding would mean every line of the copyable [mcu] section
+    starts several blank columns in from the left edge, which a
+    drag-select easily includes by accident. That's not just cosmetic:
+    printer.cfg's config format treats a leading-whitespace line as a
+    continuation of the previous line's value, not a new key, so pasting
+    an indented `[mcu]`/`serial:` line can silently break parsing. A
+    bordered popup would reintroduce the exact problem the Fn-drag fix
+    above solved, so this stays on the same borderless screen — just
+    split into separate widgets so the snippet's own box has no left
+    padding to accidentally select along with it.
+
+    The intro/outro Statics also carry zero horizontal padding (matching
+    the snippet), rather than the screen-wide padding this used to have
+    — an indented snippet sitting flush against non-indented prose read
+    as a layout bug, not an intentional callout. With everything flush
+    left, the snippet's distinct `_CALLOUT` background (a dedicated
+    token, more contrasty against `_BG` than `_SURFACE` — see theme.py —
+    since `_SURFACE` alone was too close to `_BG` to read as a
+    deliberate card rather than a rendering glitch) is what marks it as
+    a callout, not indentation. No border on it either, same reasoning
+    as above.
+    """
+
+    BINDINGS = [
+        Binding("enter,escape", "dismiss_screen", "Continue", show=False),
+    ]
+
+    CSS = f"""
+    CompletionScreen {{
+        background: {_BG};
+        color: {_TEXT};
+    }}
+    CompletionScreen #completion-intro {{
+        padding: 2 0 0 0;
+    }}
+    CompletionScreen #completion-snippet {{
+        padding: 1 0;
+        margin: 0;
+        background: {_CALLOUT};
+    }}
+    CompletionScreen #completion-outro {{
+        padding: 0 0 2 0;
+    }}
+    """
+
+    def __init__(self, text: str, config_snippet: Optional[str] = None) -> None:
+        super().__init__()
+        self._text = text
+        self._config_snippet = config_snippet
+
+    def compose(self) -> ComposeResult:
+        # Header only — no Footer (its keybinding hints were exactly the
+        # kind of extra text that got swept into a drag-selection once
+        # the modal border was removed) and no step-list pane. Header
+        # itself is just a solid title bar with no border glyphs, so it's
+        # safe to bring back for visual consistency with FlashFlowScreen
+        # without reintroducing the copy/paste problem this screen exists
+        # to avoid.
+        yield Header(icon="")
+        # markup=False on every Static below: the completion text contains
+        # literal square brackets ("[mcu]" in the printer.cfg snippet)
+        # which, under Static's default markup=True, Rich's markup parser
+        # reads as an opening style tag rather than literal text —
+        # confirmed by testing: it silently consumes the entire "[mcu]"
+        # line as an (invalid) style span, which is why that line went
+        # missing. Resolving "mcu" as an actual Style object at render
+        # time (rather than the lenient plain-print path) is also the
+        # likely cause of the theme dropping out / slow-to-render symptoms
+        # seen alongside it — an internal render error/recovery, not
+        # something wrong with the CSS itself.
+        if self._config_snippet:
+            # partition() on the raw snippet text (not a reconstructed
+            # slice) so this stays correct regardless of exactly how much
+            # blank-line spacing flash_flow.py puts around it — the
+            # blank lines themselves are kept in `before`/`after` (not
+            # stripped) since blank lines have no visible content to
+            # garble and dropping them would collapse the intentional
+            # spacing around the block.
+            before, _, after = self._text.partition(self._config_snippet)
+            yield Static(before, id="completion-intro", markup=False)
+            yield Static(self._config_snippet, id="completion-snippet", markup=False)
+            yield Static(after + "\n\nPress Enter to continue...", id="completion-outro", markup=False)
+        else:
+            yield Static(f"{self._text}\n\nPress Enter to continue...", id="completion-intro", markup=False)
+
+    def action_dismiss_screen(self) -> None:
+        self.dismiss(None)
 
 
 class FlashFlowScreen(Screen):
