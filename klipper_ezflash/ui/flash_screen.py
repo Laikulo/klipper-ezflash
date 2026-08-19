@@ -215,7 +215,7 @@ class FlashFlowScreen(Screen):
             self._log_file = None
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(icon="")
         with Horizontal(id="body"):
             with VerticalScroll(id="steps"):
                 yield self.step_list

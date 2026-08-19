@@ -64,7 +64,7 @@ class EZFlashApp(FlashFlowMixin, App):
         self._stopped_services: list[str] = []
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(icon="")
         yield LoadingIndicator(id="startup-loading")
         yield Footer()
 
