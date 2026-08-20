@@ -17,7 +17,7 @@ from textual.widgets import Footer, Header, LoadingIndicator
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
 from ..util import find_katapult, _KATAPULT_CLONE_URL, check_can_host_state, fix_can_host_state, check_uart_host_state, fix_uart_host_state, reboot_host, start_services, update_katapult, clone_katapult as _clone_katapult_repo
-from ..session import load_session
+from ..session import load_session, clear_session
 from .. import detect as detect_mod
 from .theme import _BG, _PANEL, _TEXT, _ACCENT
 from .dialogs import MessageDialog, ConfirmDialog, ChoiceDialog, ButtonChoiceDialog, InputDialog
@@ -500,6 +500,12 @@ class EZFlashApp(FlashFlowMixin, App):
                         await self.start_flash_flow(resume_session=existing)
                     except Exception as e:
                         await self.msgbox(f"Failed to resume session: {e}")
+                else:
+                    # User declined to resume so clear the session so it doesn't keep showing up on next launch.
+                    try:
+                        clear_session()
+                    except Exception:
+                        pass
 
             await self.check_katapult()
             await self.menus()
