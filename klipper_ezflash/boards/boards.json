@@ -1109,7 +1109,7 @@
     "LDO": {
       "Rethonance Hub": {
         "Rethonance Hub v1.0": {
-          "boot_method": "one_button",
+          "boot_method": "boot+reset",
           "documentation": "https://docs.ldomotors.com/en/voron/unicorn",
           "mcu": {
             "architecture": "STMicroelectronics STM32",
