@@ -933,7 +933,6 @@
             "tx": "gpio0",
             "rx": "gpio1"
           },
-          "usb": {},
           "status": "!gpio5"
         }
       },
