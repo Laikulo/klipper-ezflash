@@ -126,26 +126,19 @@ def check_bootloader_already_present(mcu_arch: str) -> Optional[Dict[str, Any]]:
     return matching[0] if matching else None
 
 
-def verify_bootloader_connected(mcu_arch: str, timeout: int = 30, settle_time: float = 1.5) -> Dict[str, Any]:
-    """Wait for exactly one bootloader device matching `mcu_arch` to
-    appear and remain present, returning its info dict.
+def wait_for_bootloader_device(mcu_arch: str, timeout: int = 30) -> Dict[str, Any]:
+    """Poll until exactly one bootloader device matching `mcu_arch` first
+    appears, returning its info dict as soon as it's seen — no settle/
+    recheck delay here, that's confirm_bootloader_stable()'s job. Split
+    out from the combined verify_bootloader_connected() so a caller
+    (flash_flow.py) can update the UI between "waiting for a device" and
+    "confirming it's stable" instead of that transition being invisible
+    inside one opaque blocking call.
 
-    Raises EZFException if:
-      - no matching device appears within `timeout`
-      - more than one device matching `mcu_arch` is present at once —
-        this is genuinely ambiguous, since we have no way to tell which
-        one the user actually wants flashed, so it's always a hard stop
-      - the matching device disappears (or a second one shows up) during
-        the brief settle/recheck window
-
-    A bootloader device of a *different* architecture being present at
-    the same time is not ambiguous — it doesn't affect which device gets
-    flashed — but it's easy to miss having accidentally left another
-    board connected, or to have picked the wrong board in the app. That
-    case is folded into the returned dict as `other_devices` (a
-    possibly-empty list) rather than raised, so the caller can show it
-    as a "double check you selected the right board" warning without
-    blocking the flash.
+    Raises EZFException if no matching device appears within `timeout`,
+    or if more than one matching device is present at once (see
+    _ambiguous_error) — both are hard stops, same as
+    verify_bootloader_connected.
     """
     deadline = time.time() + timeout
     last_other: List[Dict[str, Any]] = []
@@ -154,24 +147,10 @@ def verify_bootloader_connected(mcu_arch: str, timeout: int = 30, settle_time: f
         matching, other = _matching_and_other(devices, mcu_arch)
         if other:
             last_other = other
-
         if len(matching) > 1:
             raise _ambiguous_error(matching, mcu_arch)
-
         if matching:
-            first = matching[0]
-            time.sleep(settle_time)
-            devices2 = scan_hardware_bootloader_devices()
-            matching2, other2 = _matching_and_other(devices2, mcu_arch)
-
-            if len(matching2) > 1:
-                raise _ambiguous_error(matching2, mcu_arch)
-            if not any(d.get("raw") == first.get("raw") for d in matching2):
-                raise EZFException("Bootloader device was detected but did not remain present (cable/click)")
-
-            first["other_devices"] = other2
-            return first
-
+            return matching[0]
         time.sleep(1)
 
     if last_other:
@@ -182,3 +161,34 @@ def verify_bootloader_connected(mcu_arch: str, timeout: int = 30, settle_time: f
             "Double check you selected the right board — this may be the device you meant to flash."
         )
     raise EZFException(f"No bootloader device detected for MCU '{mcu_arch}' within {timeout}s")
+
+
+def confirm_bootloader_stable(mcu_arch: str, first_seen: Dict[str, Any], settle_time: float = 1.5) -> Dict[str, Any]:
+    """Given a device already seen by wait_for_bootloader_device() (or an
+    already-present one from check_bootloader_already_present()), wait
+    `settle_time` and recheck that it's still the sole matching device —
+    the debounce half of the old verify_bootloader_connected().
+
+    Raises EZFException if a second matching device shows up during the
+    settle window, or if the original device is no longer present (cable
+    wiggled loose, or it re-enumerated as something else).
+    """
+    time.sleep(settle_time)
+    devices2 = scan_hardware_bootloader_devices()
+    matching2, other2 = _matching_and_other(devices2, mcu_arch)
+    if len(matching2) > 1:
+        raise _ambiguous_error(matching2, mcu_arch)
+    if not any(d.get("raw") == first_seen.get("raw") for d in matching2):
+        raise EZFException("Bootloader device was detected but did not remain present (cable/click)")
+    first_seen["other_devices"] = other2
+    return first_seen
+
+
+def verify_bootloader_connected(mcu_arch: str, timeout: int = 30, settle_time: float = 1.5) -> Dict[str, Any]:
+    """Combined wait-then-confirm, kept for compatibility/simple callers
+    that don't need the two phases split apart. flash_flow.py no longer
+    calls this directly — see wait_for_bootloader_device() and
+    confirm_bootloader_stable() above.
+    """
+    first = wait_for_bootloader_device(mcu_arch, timeout=timeout)
+    return confirm_bootloader_stable(mcu_arch, first, settle_time=settle_time)

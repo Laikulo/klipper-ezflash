@@ -366,6 +366,25 @@ class FlashFlowMixin:
                     if session.step_index <= 3:
                         arch = (session.mcu_arch or "").lower()
 
+                        # A resumed session may not have `board` populated yet
+                        # (it's normally only loaded above when a cached binary
+                        # is missing) — load it here too, since the
+                        # board-specific instructions text below need it
+                        # regardless of whether anything had to be recompiled.
+                        if board is None:
+                            try:
+                                bdb = self._board_db or BoardDatabase()
+                                self._board_db = bdb
+                                board = next(
+                                    (b for b in bdb.get_all()
+                                     if b.manufacturer == session.manufacturer
+                                     and b.model == session.model
+                                     and b.variant == session.variant),
+                                    None,
+                                )
+                            except Exception:
+                                board = None
+
                         # If a matching bootloader device is already sitting
                         # connected (e.g. a power user who put the board into
                         # bootloader mode before starting this flash), skip
@@ -377,36 +396,44 @@ class FlashFlowMixin:
                             device_mod.check_bootloader_already_present, session.mcu_arch
                         )
                         if already_present is None:
-                            if "rp2040" in arch or "rp2" in arch:
-                                bootloader_hint = (
-                                    "Hold the BOOTSEL button while plugging the board in "
-                                    "(or hold BOOTSEL and tap RESET) to enter RP2 bootloader mode."
-                                )
-                            elif "stm32" in arch:
-                                bootloader_hint = (
-                                    "Set the BOOT0 jumper/pin and power-cycle the board "
-                                    "to enter STM32 DFU mode."
-                                )
+                            custom_hint = (
+                                board.instructions.get("bootrom_entry")
+                                if (board is not None and board.instructions)
+                                else None
+                            )
+                            if custom_hint:
+                                bootloader_hint = custom_hint
                             else:
                                 bootloader_hint = "Put the board into its bootloader mode."
-                            await self.msgbox(
-                                f"Prepare the board for flashing:\n\n{bootloader_hint}\n\n"
-                                "Once it's in bootloader mode, press OK to continue.",
-                                title="Bootloader Mode Required",
+                            screen.start_step(
+                                3,
+                                f"{bootloader_hint}\n\nWaiting for a bootloader device to be detected...",
                             )
+                            first_dev = await asyncio.to_thread(
+                                device_mod.wait_for_bootloader_device, session.mcu_arch
+                            )
+                            screen.write(
+                                f"Bootloader device detected: {first_dev.get('raw', '<unknown>')} — confirming it's stable..."
+                            )
+                        else:
+                            screen.start_step(
+                                3,
+                                "Bootloader device already connected — confirming it's stable...",
+                            )
+                            first_dev = already_present
 
-                        # Either way, still confirm via verify_bootloader_connected
-                        # below — its settle/recheck window is what actually
+                        # The settle/recheck window here is what actually
                         # debounces a device that just appeared (or that was
                         # already present but about to disappear/re-enumerate),
-                        # rather than trusting either check on its own.
-                        screen.start_step(3, "Re-checking bootloader before flashing. Please keep the device connected.")
-                        stable_dev = await asyncio.to_thread(device_mod.verify_bootloader_connected, session.mcu_arch)
+                        # rather than trusting either check above on its own.
+                        stable_dev = await asyncio.to_thread(
+                            device_mod.confirm_bootloader_stable, session.mcu_arch, first_dev
+                        )
                         session.detected_devices.append(stable_dev)
                         save_session(session)
                         screen.write(f"Bootloader appears stable: {stable_dev.get('raw', '<unknown>')}")
 
-                        # Not ambiguous (verify_bootloader_connected already
+                        # Not ambiguous (confirm_bootloader_stable already
                         # guarantees exactly one device matching this arch),
                         # but a bootloader device of a *different*
                         # architecture also being present is easy to miss
@@ -451,7 +478,83 @@ class FlashFlowMixin:
                         session.step_index = 4
                         save_session(session)
 
+                        # Boards that need a physical interface swap between
+                        # bootloader and firmware stage (cable moved to a
+                        # different connector, boot jumper removed, host
+                        # power-cycled) declare that in board.instructions'
+                        # post_bootloader text. Absence of the key means no
+                        # dialog and no extra click — covers boards that
+                        # support both interfaces live just fine.
+                        if board is not None and board.instructions and board.instructions.get("post_bootloader"):
+                            next_action = await self.button_menu(
+                                choices=[("shutdown", "Shut Down Now"), ("continue", "Continue")],
+                                message=board.instructions["post_bootloader"],
+                                title="Bootloader Flash Complete — Next Step",
+                            )
+                            if next_action == "shutdown":
+                                try:
+                                    with self.suspend():
+                                        print("\nShutting down — you may be prompted for your sudo password below.\n")
+                                        subprocess.run(["sudo", "shutdown", "-h", "now"], check=True)
+                                    # Session is already saved at step_index=4
+                                    # above — nothing further to do here, the
+                                    # host is on its way down. Return rather
+                                    # than falling through to step 5's device
+                                    # detection, which can only ever time out
+                                    # while the board is unplugged/powering off.
+                                    return
+                                except Exception as e:
+                                    await self.msgbox(f"Failed to shut down host:\n\n{e}", title="Error")
+
                     if session.step_index <= 4:
+                        if firmware_bin is None or firmware_path is None:
+                            # Resuming past the compile step (session.step_index > 0,
+                            # e.g. right after a bootloader-only flash, or after a
+                            # host power-cycle for a cable-swap board) means these
+                            # were never set above — they're only computed inside
+                            # the step_index<=0 block. A resumed session always
+                            # implies a previously-successful compile (its hash is
+                            # recorded in session.firmware_bin_hash), so locate the
+                            # binary from disk via the same cache-validation path
+                            # rather than recompiling. Without this, firmware_bin
+                            # stays None and gets silently passed straight through
+                            # to flashtool.py as a literal "-f None".
+                            #
+                            # Neither failure here is something a "Retry" can fix —
+                            # the missing Klipper checkout or mismatched binary won't
+                            # change between attempts — so these bypass the normal
+                            # raise EZFException(...)/outer retry-or-abort handler
+                            # entirely and go straight to a clear message + cleared
+                            # session, the same end state as choosing Abort but
+                            # without offering a Retry that would just loop forever.
+                            firmware_path = find_klipper()
+                            if not firmware_path:
+                                await self.msgbox(
+                                    "Klipper checkout not found — cannot resume this flash.\n\n"
+                                    "This is an environment problem (the checkout this session was "
+                                    "built against is missing), not something a retry can fix.",
+                                    title="Cannot Resume",
+                                )
+                                try:
+                                    clear_session()
+                                except Exception:
+                                    pass
+                                return
+                            firmware_bin = _valid_cached_binary(
+                                flash_mod.klipper_output_path(firmware_path), session.firmware_bin_hash
+                            )
+                            if firmware_bin is None:
+                                await self.msgbox(
+                                    "Could not locate the compiled firmware binary for this resumed "
+                                    "session (it may have been deleted, or the source no longer "
+                                    "matches what was compiled).\n\nStart a new flash to rebuild it.",
+                                    title="Cannot Resume",
+                                )
+                                try:
+                                    clear_session()
+                                except Exception:
+                                    pass
+                                return
                         screen.start_step(5)
                         iface = (session.interface or "USB")
                         is_canbridge = "USB to CAN Bridge" in iface

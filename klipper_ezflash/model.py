@@ -316,6 +316,7 @@ class BoardDefinition(object):
     startup_pins: Optional[str] = None
     klipper_options: Optional[Dict[str, str]] = None
     optional_features: Optional[List[str]] = None
+    instructions: Optional[Dict[str, str]] = None
 
     def __str__(self):
         return f"{self.manufacturer}/{self.model}/{self.variant}"
@@ -416,6 +417,8 @@ class BoardDefinition(object):
             opts["klipper_options"] = dict(klipper_opts)
         if (opt_features := definition.get("optional_features")) is not None:
             opts["optional_features"] = list(opt_features)
+        if instructions := definition.get("instructions"):
+            opts["instructions"] = dict(instructions)
         return cls(**opts)
 
     @cached_property
