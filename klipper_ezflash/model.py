@@ -490,7 +490,7 @@ class BoardUARTDefinition(object):
         return cls(rx_pin=data["rx_pin"], tx_pin=data["tx_pin"])
 
     def as_interface(self):
-        return BoardInterfaceDefinition("UART", {"tx": self.tx_pin, "rx": self.rx_pin})
+        return BoardInterfaceDefinition("UART", {"rx": self.rx_pin, "tx": self.tx_pin})
 
 
 @dataclasses.dataclass
