@@ -239,6 +239,7 @@ class FlashFlowMixin:
             while True:
                 try:
                     bootloader_bin = firmware_bin = None
+                    firmware_path = None
                     klipper_path = can_uid = None
                     known_katapult_devs: Optional[list] = None
 

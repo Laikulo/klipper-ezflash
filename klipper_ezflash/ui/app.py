@@ -490,9 +490,34 @@ class EZFlashApp(FlashFlowMixin, App):
             except Exception:
                 existing = None
             if existing is not None:
+                resume_message = "A previous flash session was detected.\n\nResume or start a new flash?"
+                # step_index 4-5 = bootloader flashed, firmware detection
+                # not yet done — the window where a board needing a
+                # physical interface swap would have been interrupted (e.g.
+                # by a full host shutdown to move a cable). Echo the same
+                # post_bootloader text shown mid-flash, since a user coming
+                # back after a real power-off may not remember it.
+                if existing.step_index in (4, 5):
+                    try:
+                        board = next(
+                            (b for b in (self._board_db.get_all() if self._board_db else [])
+                             if b.manufacturer == existing.manufacturer
+                             and b.model == existing.model
+                             and b.variant == existing.variant),
+                            None,
+                        )
+                    except Exception:
+                        board = None
+                    if board is not None and board.instructions and board.instructions.get("post_bootloader"):
+                        resume_message = (
+                            "A previous flash session was detected, partway through the "
+                            "bootloader-to-firmware transition.\n\n"
+                            f"Reminder for this board:\n{board.instructions['post_bootloader']}\n\n"
+                            "Resume or start a new flash?"
+                        )
                 tag = await self.menu(
                     choices=[("resume", "Resume previous flash"), ("new", "Start a new flash")],
-                    message="A previous flash session was detected.\n\nResume or start a new flash?",
+                    message=resume_message,
                     cancel_label="Start new",
                 )
                 if tag == "resume":
