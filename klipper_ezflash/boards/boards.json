@@ -3,8 +3,10 @@
     "BigTreeTech": {
       "Kraken": {
         "Kraken": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/bigtreetech/BIGTREETECH-Kraken",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -20,8 +22,10 @@
       },
       "Manta E3EZ": {
         "Manta E3EZ": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/bigtreetech/Manta-E3EZ/tree/master",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -37,8 +41,11 @@
       },
       "Experimental Manta M4P": {
         "Manta M4P": {
-          "boot_method": "reset+cable",
           "documentation": "https://github.com/bigtreetech/Manta-M4P/tree/master",
+          "instructions": {
+            "bootrom_entry": "Using a jumper wire, connect J9 pins 1 (3.3V) and pin 4 (PA14) together and then press and release the RESET button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the jumper wire now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -49,8 +56,10 @@
       },
       "Manta M5P": {
         "Manta M5P v1.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/M5P.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -65,8 +74,10 @@
       },
       "Manta M8P": {
         "Manta M8P v1.1": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/M8P.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -80,8 +91,10 @@
           "status": "PA13"
         },
         "Manta M8P v2.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/M8P-V2_0.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -96,8 +109,11 @@
       },
       "Octopus": {
         "Octopus with F446": {
-          "boot_method": "jumper+reset",
           "documentation": "https://global.bttwiki.com/Octopus.html",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -111,8 +127,11 @@
           "status": "PA13"
         },
         "Octopus with F429": {
-          "boot_method": "jumper+reset",
           "documentation": "https://global.bttwiki.com/Octopus.html",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F429",
@@ -126,8 +145,11 @@
           "status": "PA13"
         },
         "Octopus with F407": {
-          "boot_method": "jumper+reset",
           "documentation": "https://global.bttwiki.com/Octopus.html",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
@@ -141,8 +163,11 @@
           "status": "PA13"
         },
         "Octopus with H723": {
-          "boot_method": "jumper+reset",
           "documentation": "https://global.bttwiki.com/Octopus.html",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -158,8 +183,10 @@
       },
       "Octopus Max EZ": {
         "Octopus Max EZ": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/Octopus%20MAX%20EZ.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -175,8 +202,11 @@
       },
       "Octopus Pro": {
         "Octopus Pro v1.1": {
-          "boot_method": "jumper+reset",
           "documentation": "https://global.bttwiki.com/Octopus%20Pro.html",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -192,8 +222,10 @@
       },
       "SKR Mini E3": {
         "SKR Mini E3 v3.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/SKR%20MINI%20E3.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -205,8 +237,11 @@
       },
       "SKR Pico": {
         "SKR Pico": {
-          "boot_method": "jumper+reset",
           "documentation": "https://global.bttwiki.com/SKR%20Pico.html",
+          "instructions": {
+            "bootrom_entry": "If the board does not have external DC power, install the USB power jumper for flashing. Install a jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the USB power jumper and boot jumper now."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -221,8 +256,10 @@
       },
       "SKR-3": {
         "SKR-3": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/bigtreetech/skr-3",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -235,8 +272,10 @@
           "usb": "PA11/PA12"
         },
         "SKR-3 EZ with H723": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/SKR%203%20EZ.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -249,8 +288,10 @@
           "usb": "PA11/PA12"
         },
         "SKR-3 EZ with H743": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/SKR%203%20EZ.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H743",
@@ -265,8 +306,10 @@
       },
       "SKRat": {
         "SKRat v1.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/SKRat.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -284,8 +327,11 @@
     "Fysetc": {
       "Spider": {
         "Spider v1.0": {
-          "boot_method": "one_jumper",
           "documentation": "https://github.com/FYSETC/FYSETC-SPIDER",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then plug in the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -299,8 +345,11 @@
           "status": "PD3"
         },
         "Spider v2.2": {
-          "boot_method": "one_jumper",
           "documentation": "https://wiki.fysetc.com/docs/Spider",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then plug in the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -314,8 +363,11 @@
           "status": "PD3"
         },
         "Spider v2.3": {
-          "boot_method": "jumper+reset",
           "documentation": "https://wiki.fysetc.com/docs/Spider",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -329,8 +381,10 @@
           "status": "PD3"
         },
         "Spider v3.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://wiki.fysetc.com/docs/Spider",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -344,8 +398,10 @@
           "status": "PD3"
         },
         "Spider v3.0 with H723": {
-          "boot_method": "boot+reset",
           "documentation": "https://wiki.fysetc.com/docs/Spider",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -363,8 +419,10 @@
     "Isik's Tech": {
       "Ouroboros": {
         "Ouroboros": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Ouroboros/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -377,8 +435,10 @@
     "LDO": {
       "Leviathan": {
         "Leviathan v1.2": {
-          "boot_method": "boot+reset",
           "documentation": "https://ldomotion.com/p/guide/VORON-Leviathan-V12",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F446",
@@ -396,8 +456,10 @@
           "status": "PE1"
         },
         "Leviathan v1.3": {
-          "boot_method": "boot+reset",
           "documentation": "https://ldomotion.com/p/guide/VORON-Leviathan-V13",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H743",
@@ -419,8 +481,10 @@
     "MKS": {
       "Monster8": {
         "Monster8 v2": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/makerbase-mks/MKS-Monster8/wiki",
+          "instructions": {
+            "bootrom_entry": "WARNING!\n\nRemove any heaters before flashing as some outputs may be enabled during flash.\n\nPress and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
@@ -437,8 +501,10 @@
     "Mellow": {
       "FLY-DP5": {
         "FLY-DP5": {
-          "boot_method": "boot+reset",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-dp5/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F072",
@@ -453,8 +519,11 @@
       },
       "FLY Super8": {
         "FLY Super8": {
-          "boot_method": "jumper+reset",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-super8",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
@@ -467,7 +536,10 @@
           "usb": "PA11/PA12"
         },
         "FLY Super8 Pro": {
-          "boot_method": "jumper+reset",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-super8-pro",
           "mcu": {
             "architecture": "STMicroelectronics STM32",
@@ -487,8 +559,11 @@
     "BigTreeTech": {
       "MMB CAN": {
         "MMB CAN v1.0 and V1.1": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/MMB%20CAN%20V1.0.html",
+          "instructions": {
+            "bootrom_entry": "Install the VUSB jumper, connect the board to the SBC with a USB cable, then press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second.",
+            "post_bootloader": "Please disconnect the USB cable, power off the printer, remove the VUSB jumper and then connect the toolhead board to the power and data cable.\n\nThe app should resume the flash flow on relaunch."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -498,8 +573,10 @@
           "usb": "PA11/PA12"
         },
         "MMB CAN v2.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/MMB%20CAN%20V2.0.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -513,8 +590,10 @@
     "Fysetc": {
       "Chameleon X5": {
         "Chameleon X5": {
-          "boot_method": "boot+reset",
           "documentation": "https://wiki.fysetc.com/docs/CHAMELEON-X5",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F407",
@@ -529,8 +608,10 @@
     "Isik's Tech": {
       "AFC-Lite for Boxturtle": {
         "AFC-Lite for Boxturtle": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Box-Turtle-Controllers/AFC-Lite/AFC-Lite-Manual/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -543,8 +624,10 @@
       },
       "AFC Pro": {
         "AFC Pro": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Box-Turtle-Controllers/AFC-Pro/AFC-Pro-Manual/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -559,8 +642,11 @@
     "Mellow": {
       "FLY ERCF": {
         "FLY ERCF v1.0": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-ercf",
+          "instructions": {
+            "bootrom_entry": "With the printer power off, remove the XT302+2 cable and the USB cable. Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Safely shutdown and power off the printer, and reconnect the XT302+2 cable."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -573,8 +659,11 @@
           "usb": {}
         },
         "FLY ERCF v2.0": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-ercf-v2",
+          "instructions": {
+            "bootrom_entry": "With the printer power off, remove the XT302+2 cable and the USB cable. Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Safely shutdown and power off the printer, and reconnect the XT302+2 cable and confirm the switches are set for the correct communications interface."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -595,8 +684,10 @@
       },
       "FLY MMU": {
         "FLY MMU": {
-          "boot_method": "boot+reset",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-mmu-1",
+          "instructions": {
+            "bootrom_entry": "Confirm the DIP switch is in the correct mode for the intended communication interface.\n\nPress and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32H723",
@@ -617,8 +708,10 @@
     "BigTreeTech": {
       "EBB36": {
         "EBB36 v1.2": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/EBB%2036%20CAN.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -629,8 +722,10 @@
           "status": "PA13"
         },
         "EBB36 Gen2 v1.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/EBB36_GEN2.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -643,8 +738,10 @@
       },
       "EBB42": {
         "EBB42 v1.2": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/EBB%2042%20CAN.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -655,8 +752,10 @@
           "status": "PA13"
         },
         "EBB42 Gen2 v1.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/EBB42_GEN2.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -669,8 +768,11 @@
       },
       "SB2209": {
         "SB2209": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/EBB%202240%202209%20CAN.html",
+          "instructions": {
+            "bootrom_entry": "Install the VUSB jumper, connect the board to the SBC with a USB cable. Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second.",
+            "post_bootloader": "Please safely shutdown the printer, remove the USB power jumper and then connect the XT302+2 cableInstall the VUSB jumper, connect the board to the SBC with a USB cable, now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -681,8 +783,11 @@
           "status": "PA13"
         },
         "SB2209 (RP2040)": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/EBB%202209%20CAN%20RP2040.html",
+          "instructions": {
+            "bootrom_entry": "Install the VUSB jumper, connect the board to the SBC with a USB cable. Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second.",
+            "post_bootloader": "Please safely shutdown the printer, remove the USB power jumper and then connect the XT302+2 cableInstall the VUSB jumper, connect the board to the SBC with a USB cable, now."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -696,8 +801,10 @@
           "status": "gpio26"
         },
         "SB2209-USB": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/EBB%20SB2209%20USB.html",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -708,8 +815,11 @@
       },
       "SB2240": {
         "SB2240": {
-          "boot_method": "boot+reset",
           "documentation": "https://global.bttwiki.com/EBB%202240%202209%20CAN.html",
+          "instructions": {
+            "bootrom_entry": "Install the VUSB jumper, connect the board to the SBC with a USB cable. Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second.",
+            "post_bootloader": "Please safely shutdown the printer, remove the USB power jumper and then connect the XT302+2 cableInstall the VUSB jumper, connect the board to the SBC with a USB cable, now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -724,8 +834,10 @@
     "Fysetc": {
       "SB Combo": {
         "SB Combo v2": {
-          "boot_method": "boot+reset",
           "documentation": "https://wiki.fysetc.com/docs/SBComboV2",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
@@ -738,8 +850,10 @@
       },
       "SB-CAN-TH": {
         "SB-CAN-TH": {
-          "boot_method": "usb",
           "documentation": "https://wiki.fysetc.com/docs/SB-CAN-ToolHead",
+          "instructions": {
+            "bootrom_entry": "Connect the USB cable to the host SBC, apply power to the toolhead board, the press and hold the reset button for 2 seconds and release to put the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
@@ -752,8 +866,10 @@
       },
       "H36": {
         "H36": {
-          "boot_method": "boot+reset",
           "documentation": "https://wiki.fysetc.com/docs/H36-Combo",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -768,8 +884,10 @@
     "MKS": {
       "THR36": {
         "THR36 v1.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/makerbase-mks/MKS-THR36-THR42-UTC",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -786,8 +904,10 @@
     "LDO": {
       "Nitehawk-SB": {
         "Nitehawk-SB": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.ldomotors.com/en/Toolboard/nitehawk-sb",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -797,8 +917,10 @@
           "status": "!gpio8"
         },
         "Nitehawk-SB v2": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.ldomotors.com/en/Toolboard/nitehawk-sb-v2",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -810,8 +932,10 @@
       },
       "Nitehawk36": {
         "Nitehawk36": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.ldomotors.com/en/Toolboard/nitehawk-36",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -823,8 +947,10 @@
       },
       "Picobilical": {
         "Picobilical": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.ldomotors.com/voron/Picobilical",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -838,8 +964,10 @@
     "OrbiterProjects": {
       "Orbitool O2": {
         "Orbitool O2": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/RobertLorincz/Orbiter-Toolboards/tree/main/Orbiter%20O2%20Toolboard",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32f042",
@@ -854,8 +982,10 @@
       },
       "Orbitool O2S": {
         "Orbitool O2S": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/RobertLorincz/Orbiter-Toolboards/tree/main/Orbiter%20O2S%20Toolboard",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32f072",
@@ -870,8 +1000,10 @@
       },
       "Orbitool SO3": {
         "Orbitool SO3": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/RobertLorincz/Orbiter-Toolboards/tree/main/Orbiter%20SO3%20Toolboard",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32f042",
@@ -888,8 +1020,10 @@
     "Mellow": {
       "SB2040": {
         "SB2040 v1": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sb2040-v1v2",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -903,8 +1037,10 @@
           "status": "gpio24"
         },
         "SB2040 v2": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sb2040-v1v2",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -918,8 +1054,11 @@
           "status": "gpio24"
         },
         "SB2040 v3": {
-          "boot_method": "boot+reset",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sb2040-v3",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second.",
+            "post_bootloader": "Please disconnect the USB cable, power off the printer, and then connect the toolhead board to the power and data cable.\n\nPlease confirm the switch positions are set for the chosen interface and then power the printer back on.\n\nThe app should resume the flash flow on relaunch."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -938,8 +1077,11 @@
       },
       "SHT36": {
         "SHT36 v1": {
-          "boot_method": "one_jumper",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sht3642",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then plug in the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
@@ -950,8 +1092,11 @@
           "status": "!PC13"
         },
         "SHT36 v2 with F702": {
-          "boot_method": "one_jumper",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sht36-v2",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then plug in the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
@@ -962,8 +1107,11 @@
           "status": "!PC13"
         },
         "SHT36 v2 with F103": {
-          "boot_method": "one_jumper",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sht36-v2",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then plug in the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F103",
@@ -974,8 +1122,11 @@
           "status": "!PC13"
         },
         "SHT36 v3": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sht36-v3",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Please disconnect the USB cable, power off the printer, and then connect the toolhead board to the power and data cable.\n\nPlease confirm the switch positions are set for the chosen interface and then power the printer back on.\n\nThe app should resume the flash flow on relaunch."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -992,8 +1143,11 @@
           "status": "!gpio5"
         },
         "SHT36 Pro": {
-          "boot_method": "one_jumper",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sht36-pro",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then plug in the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -1008,8 +1162,11 @@
       },
       "SHT42": {
         "SHT42": {
-          "boot_method": "one_jumper",
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sht3642",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then plug in the USB cable to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32F072",
@@ -1022,8 +1179,10 @@
       },
       "TOOL-LITE": {
         "TOOL-LITE-CAN": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/tool-lite-can",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -1037,8 +1196,10 @@
           "startup_pins": "gpio18"
         },
         "TOOL-LITE-232": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/tool-lite-232",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -1058,8 +1219,10 @@
     "Fysetc": {
       "Portable Input Shaper": {
         "Portable Input Shaper": {
-          "boot_method": "one_button",
           "documentation": "https://github.com/FYSETC/FYSETC-PortableInputShaper",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -1074,8 +1237,10 @@
     "Isik's Tech": {
       "KUBSA": {
         "KUSBA v2.4": {
-          "boot_method": "one_button",
           "documentation": "https://github.com/xbst/KUSBA/tree/main",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -1084,8 +1249,10 @@
           "usb": {}
         },
         "KUSBA Pro v1.0 LIS2DW": {
-          "boot_method": "one_button",
           "documentation": "https://github.com/xbst/KUSBA/tree/main",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F042",
@@ -1094,8 +1261,10 @@
           "usb": "PA9/PA10"
         },
         "KUSBA Pro v2.0 ADXL345": {
-          "boot_method": "one_button",
           "documentation": "https://github.com/xbst/KUSBA/tree/main",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32G431",
@@ -1108,8 +1277,10 @@
     "LDO": {
       "Rethonance Hub": {
         "Rethonance Hub v1.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.ldomotors.com/en/voron/unicorn",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -1124,8 +1295,10 @@
     "Mellow": {
       "Fly ADXL345": {
         "Fly ADXL345": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/usb%E5%8A%A0%E9%80%9F%E5%BA%A6%E8%AE%A1adxl345/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -1136,8 +1309,10 @@
       },
       "Fly LIS2DW": {
         "Fly LIS2DW": {
-          "boot_method": "one_button",
           "documentation": "https://mellow.klipper.cn/en/docs/category/usb%E5%8A%A0%E9%80%9F%E5%BA%A6%E8%AE%A1lis2dw",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
@@ -1150,8 +1325,10 @@
     "Provok3d": {
       "Nozzle ADXL": {
         "Nozzle ADXL v1": {
-          "boot_method": "manual_jumper",
           "documentation": "https://docs.provok3d.com/nozzle-adxl-v13/",
+          "instructions": {
+            "bootrom_entry": "Unplug the board from your printer, short the DFU pins, and then plug the USB cable back in to place the board in bootrom mode.\n\nOnce connected you can remove the jumper."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F072",
@@ -1166,8 +1343,10 @@
     "3DAixperts": {
       "Skirt Button PCB": {
         "Skirt Button PCB": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/3DAixperts/skirt-button-pcb",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F072",
@@ -1181,8 +1360,10 @@
     "BigTreeTech":{
       "MMB Cubic": {
         "MMB Cubic v1.0": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/bigtreetech/MMB-Cubic",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -1194,9 +1375,11 @@
       },
       "HBB": {
         "HBB": {
-          "boot_method": "one_button",
           "documentation": "https://github.com/bigtreetech/HBB",
           "mcu": {
+            "instructions": {
+              "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+            },
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
             "flash": "w25q080"
@@ -1209,8 +1392,10 @@
     "Fysetc": {
       "Hexa Distro Fusion": {
         "Hexa Distro Fusion": {
-          "boot_method": "boot+reset",
           "documentation": "https://wiki.fysetc.com/docs/hexa_distro_fusion",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F072",
@@ -1227,8 +1412,10 @@
     "Isik's Tech": {
       "Birds Nest Boards": {
         "Birds Nest CAN": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Birds-Nests/Birds-Nest-CAN/Birds-Nest-CAN-Manual/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -1241,8 +1428,10 @@
           "status": "PA13"
         },
         "Birds Nest USB": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Birds-Nests/Birds-Nest/Birds-Nest-Manual/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -1254,8 +1443,10 @@
       },
       "Hedeghog Klipper IO Board": {
         "Hedeghog Klipper IO Board": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Hedgehog/Hedgehog/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -1268,8 +1459,10 @@
       },
       "Nevermore PCBs": {
         "Nevermore Max 2 PCB": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Nevermore/Controller/#nevermore-max-2-pcb",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -1278,8 +1471,10 @@
           "usb": "PA11/PA12"
         },
         "Nevermore Mini and Stealthmax PCB": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Nevermore/Controller/#nevermore-mini-stealthmax-pcb",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -1290,8 +1485,10 @@
           "status": "PA13"
         },
         "Nevermore Stealthmax PCB 2": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.isiks.tech/Nevermore/Controller/#nevermore-stealthmax-pcb-2",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "stm32g0b1",
@@ -1306,8 +1503,10 @@
     "Provok3d": {
       "Therm^2": {
         "Therm^2": {
-          "boot_method": "boot+reset",
           "documentation": "https://docs.provok3d.com/therm2/",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F042",
@@ -1320,8 +1519,10 @@
     "Replimat Labs": {
       "DragonDinghy": {
         "DragonDinghy": {
-          "boot_method": "boot+reset",
           "documentation": "https://dgnkty.de/dinghy",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F072",
@@ -1338,8 +1539,11 @@
     "Voron Design": {
       "Klipper Expander": {
         "Klipper Expander": {
-          "boot_method": "jumper+reset",
           "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/Klipper_Expander",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F042",
@@ -1352,8 +1556,11 @@
       },
       "V0 Display": {
         "V0 Display": {
-          "boot_method": "jumper+reset",
           "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/V0_Display",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F042",
@@ -1363,8 +1570,11 @@
           "optional_features":["WANT_BUTTONS", "WANT_NEOPIXEL", "WANT_PULSE_COUNTER", "WANT_ST7920", "WANT_HD44780", "WANT_ADC", "WANT_SPI", "WANT_SOFTWARE_SPI", "WANT_I2C", "WANT_HARD_PWM"]
         },
         "V0 Micro Display": {
-          "boot_method": "jumper+reset",
           "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/V0_Micro_Display",
+          "instructions": {
+            "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
+            "post_bootloader": "Please remove the BOOT jumper now."
+          },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F042",
@@ -1374,8 +1584,10 @@
           "optional_features":["WANT_BUTTONS", "WANT_NEOPIXEL", "WANT_PULSE_COUNTER", "WANT_ST7920", "WANT_HD44780", "WANT_ADC", "WANT_I2C", "WANT_HARD_PWM"]
         },
         "V0 Display RP2040": {
-          "boot_method": "boot+reset",
           "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/V0_Display_RP2040",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
           "mcu": {
             "architecture": "Raspberry Pi RP2040",
             "mcu": "rp2040",
