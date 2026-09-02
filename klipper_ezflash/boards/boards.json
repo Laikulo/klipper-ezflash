@@ -179,6 +179,23 @@
           },
           "usb": "PA11/PA12",
           "status": "PA13"
+        },
+        "Octopus X7 (Troodon)": {
+          "documentation": "",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F407",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_rx": "PD0",
+            "can_tx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA13"
         }
       },
       "Octopus Max EZ": {
