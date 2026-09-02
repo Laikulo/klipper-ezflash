@@ -678,7 +678,7 @@
             "rx": "gpio1"
           },
           "usb": {},
-          "status": "!gpio17",
+          "status": "gpio17",
           "startup_pins": "!gpio17"
         }
       },
@@ -1072,7 +1072,8 @@
             "tx": "gpio0",
             "rx": "gpio1"
           },
-          "status": "!gpio5"
+          "status": "!gpio5",
+          "startup_pins": "gpio5"
         }
       },
       "SHT36": {
@@ -1140,7 +1141,8 @@
             "tx": "gpio0",
             "rx": "gpio1"
           },
-          "status": "!gpio5"
+          "status": "!gpio5",
+          "startup_pins": "gpio5"
         },
         "SHT36 Pro": {
           "documentation": "https://mellow.klipper.cn/en/docs/category/fly-sht36-pro",
@@ -1229,7 +1231,7 @@
             "flash": "w25q080"
           },
           "usb": {},
-          "status": "gpio25",
+          "status": "!gpio25",
           "startup_pins": "gpio25"
         }
       }
