@@ -513,6 +513,20 @@
           "usb": "PA11/PA12",
           "status": "PE1"
         }
+      },
+      "Positron Mainboard": {
+        "Positron Mainboard": {
+          "documentation": "https://docs.ldomotors.com/en/Positron/electronics",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
+          "mcu": {
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {}
+        }
       }
     },
     "MKS": {
@@ -995,6 +1009,21 @@
           },
           "usb": {},
           "status": "!gpio10"
+        }
+      },
+      "Positron Toolhead PCB": {
+        "Positron PV3 Toolhead": {
+          "documentation": "https://docs.ldomotors.com/en/Positron/electronics",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
+          "mcu": {
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "w25q080"
+          },
+          "usb": {},
+          "status": "!gpio8"
         }
       }
     },
