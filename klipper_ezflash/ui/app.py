@@ -143,28 +143,78 @@ class EZFlashApp(FlashFlowMixin, App):
     # ---- board selection wizard ---------------------------------------
 
     async def select_board(self):
-        """Manufacturer -> model -> (variant) wizard. Escape / the dialog's
-        Cancel-slot button steps back one level rather than aborting the
-        whole wizard outright — labeled "Back" on every step, including
-        the first (manufacturer), even though there's nothing earlier to
-        return to there; it exits the wizard entirely in that case,
-        returning None to the caller (both "Lookup information about a
-        board" and "Flash a board" already treat a None board as "user
-        backed out, do nothing further").
+        """Manufacturer -> model -> (variant) wizard, with no interface or
+        confirmation step. Thin wrapper around _run_board_wizard() for
+        callers that just want a board back (e.g. "Lookup information
+        about a board"). See select_board_and_interface() for the fuller
+        wizard used by the flash flow.
+        """
+        result = await self._run_board_wizard(want_interface=False)
+        if result is None:
+            return None
+        board, _chosen_if_type = result
+        return board
+
+    async def select_board_and_interface(self):
+        """Manufacturer -> model -> (variant) -> (interface) -> confirm
+        wizard used by the flash flow. Returns (board, chosen_if_type) on
+        success — chosen_if_type is None only if the board genuinely has
+        no interfaces declared — or None if the user backed out of the
+        wizard entirely (Back/Escape at the manufacturer step).
+
+        Lives here rather than in flash_flow.py: selecting/confirming a
+        board and interface is menu navigation with no hardware or build
+        involvement, the same category of thing select_board() and the
+        settings/CAN-host menus already handle, and keeping it out of
+        flash_flow.py keeps that file scoped to the actual compile/
+        detect/flash sequence — relevant to the eventual Phase 2 UI-
+        independence split noted in flash_flow.py's module docstring.
+        """
+        return await self._run_board_wizard(want_interface=True)
+
+    async def _run_board_wizard(self, want_interface: bool):
+        """Shared step machine behind select_board() and
+        select_board_and_interface(). Escape / the dialog's Cancel-slot
+        button ("Back" on every step, including the first) steps back one
+        level rather than aborting the whole wizard outright; at the very
+        first step there's nothing earlier to return to, so it exits the
+        wizard entirely and returns None (every caller already treats a
+        None result as "user backed out, do nothing further").
+
+        Steps 2 (variant) and 3 (interface) are skipped, in both
+        directions, when they don't apply to the board in question (a
+        single variant, or a single/no interface).
+
+        This is one flat sequence rather than select_board_and_interface()
+        calling select_board() (or vice versa) and re-entering partway
+        through: an earlier version of the flash flow called select_board()
+        from inside its own separate interface/confirmation loop, and
+        treating Back on those later steps as "call select_board() again"
+        silently discarded the manufacturer/model/variant already chosen
+        instead of stepping back one level — that's the bug this replaced.
         """
         if self._board_db is None:
             self._board_db = BoardDatabase()
         bdb = self._board_db
         boards = list(bdb.get_all())
-
         manufacturers = tuple(sorted(set(b.manufacturer for b in boards)))
+
+        STEP_MFR, STEP_MODEL, STEP_VARIANT, STEP_INTERFACE, STEP_CONFIRM = range(5)
         selected_mfr: Optional[str] = None
         selected_model: Optional[str] = None
+        board = None
+        chosen_if_type = None
+        ifaces: list = []
 
-        # 0 = manufacturer, 1 = model, 2 = variant
-        step = 0
+        def _board_variants():
+            return tuple(sorted(set(
+                b.variant for b in boards
+                if b.manufacturer == selected_mfr and b.model == selected_model
+            )))
+
+        step = STEP_MFR
         while True:
-            if step == 0:
+            if step == STEP_MFR:
                 tag = await self.menu(
                     choices=[(str(i), n) for i, n in enumerate(manufacturers)],
                     message="Select manufacturer",
@@ -173,9 +223,9 @@ class EZFlashApp(FlashFlowMixin, App):
                 if tag is None:
                     return None
                 selected_mfr = manufacturers[int(tag)]
-                step = 1
+                step = STEP_MODEL
 
-            elif step == 1:
+            elif step == STEP_MODEL:
                 mfr_models = tuple(sorted(set(b.model for b in boards if b.manufacturer == selected_mfr)))
                 tag = await self.menu(
                     choices=[(str(i), n) for i, n in enumerate(mfr_models)],
@@ -183,32 +233,106 @@ class EZFlashApp(FlashFlowMixin, App):
                     cancel_label="Back",
                 )
                 if tag is None:
-                    step = 0
+                    step = STEP_MFR
                     continue
                 selected_model = mfr_models[int(tag)]
+                step = STEP_VARIANT
 
-                board_variants = tuple(sorted(set(
-                    b.variant for b in boards if b.manufacturer == selected_mfr and b.model == selected_model
-                )))
+            elif step == STEP_VARIANT:
+                board_variants = _board_variants()
                 if len(board_variants) > 1:
-                    step = 2
+                    tag = await self.menu(
+                        choices=[(str(i), n) for i, n in enumerate(board_variants)],
+                        message="Select variant",
+                        cancel_label="Back",
+                    )
+                    if tag is None:
+                        step = STEP_MODEL
+                        continue
+                    selected_variant = board_variants[int(tag)]
                 else:
-                    return bdb.get_board(selected_mfr, selected_model, board_variants[0])
+                    selected_variant = board_variants[0]
+                board = bdb.get_board(selected_mfr, selected_model, selected_variant)
+                if not want_interface:
+                    return (board, None)
+                step = STEP_INTERFACE
 
-            elif step == 2:
-                board_variants = tuple(sorted(set(
-                    b.variant for b in boards if b.manufacturer == selected_mfr and b.model == selected_model
-                )))
-                tag = await self.menu(
-                    choices=[(str(i), n) for i, n in enumerate(board_variants)],
-                    message="Select variant",
+            elif step == STEP_INTERFACE:
+                ifaces = board.interfaces if hasattr(board, "interfaces") else []
+                ifaces = sorted(ifaces, key=lambda i: i.if_type)
+                if len(ifaces) > 1:
+                    tag = await self.menu(
+                        choices=[(str(i), if_.pretty()) for i, if_ in enumerate(ifaces)],
+                        message="This board supports multiple interfaces. Which interface do you want to use?",
+                        cancel_label="Back",
+                    )
+                    if tag is None:
+                        step = STEP_VARIANT if len(_board_variants()) > 1 else STEP_MODEL
+                        continue
+                    chosen_if_type = ifaces[int(tag)].if_type
+                else:
+                    chosen_if_type = ifaces[0].if_type if ifaces else None
+
+                if chosen_if_type in ("CAN", "USB to CAN Bridge"):
+                    can_settings = InterfaceSettings()
+                    problems = await asyncio.to_thread(check_can_host_state, can_settings.can_speed)
+                    if problems:
+                        problem_list = "\n".join(f"  - {p}" for p in problems)
+                        fix_now = await self.yesno(
+                            f"Found issues with the host's CAN networking setup:\n\n{problem_list}\n\n"
+                            "Fix these now? (sudo password may be required)\n\n"
+                            "You can still flash without fixing these — useful if this board "
+                            "belongs to a different CAN network/printer than the host is "
+                            "currently configured for.",
+                            yes_label="Fix",
+                            no_label="Flash anyway",
+                            default_no=True,
+                        )
+                        if fix_now:
+                            try:
+                                with self.suspend():
+                                    print("\nApplying host CAN networking changes — you may be prompted for your sudo password below.\n")
+                                    fix_can_host_state(can_settings.can_speed)
+                                await self.msgbox("Host CAN networking has been updated.", title="CAN host state")
+                            except Exception as e:
+                                await self.msgbox(f"Failed to fix host CAN networking:\n\n{e}", title="CAN host state")
+
+                step = STEP_CONFIRM
+
+            elif step == STEP_CONFIRM:
+                # Show the full board summary (including its interface
+                # list) plus the interface just chosen, and let the user
+                # either proceed or go back and pick again before the
+                # caller commits to a session / starts compiling anything.
+                # Rendered as buttons (not a scrollable list) since it's
+                # just two fixed, equally-weighted choices; no separate
+                # Cancel button — Escape still backs all the way out.
+                iface_label = chosen_if_type or "(none available)"
+                speed_line = ""
+                if chosen_if_type and chosen_if_type in ("CAN", "USB to CAN Bridge"):
+                    speed_line = f"\nCAN bit rate: {InterfaceSettings().can_speed} bps"
+                elif chosen_if_type and chosen_if_type == "UART":
+                    speed_line = f"\nUART baud rate: {InterfaceSettings().uart_baudrate} baud"
+                summary = f"{board.pretty()}\nSelected interface: {iface_label}{speed_line}\n"
+                tag = await self.button_menu(
+                    choices=[("begin", "Begin Flash")],
+                    message=summary,
+                    title="Confirm Board & Interface",
                     cancel_label="Back",
                 )
-                if tag is None:
-                    step = 1
+                if tag == "begin":
+                    return (board, chosen_if_type)
+                else:
+                    # "reselect" or Escape/Back (tag is None) both mean:
+                    # step back exactly one level — to interface
+                    # reselection if this board actually has a choice to
+                    # make there, else straight to variant/model, since a
+                    # single-interface board never showed an interface
+                    # screen to return to.
+                    step = STEP_INTERFACE if len(ifaces) > 1 else (
+                        STEP_VARIANT if len(_board_variants()) > 1 else STEP_MODEL
+                    )
                     continue
-                selected_variant = board_variants[int(tag)]
-                return bdb.get_board(selected_mfr, selected_model, selected_variant)
 
     # ---- settings menu --------------------------------------------------
 

@@ -22,7 +22,7 @@ from typing import Optional
 
 from ..model import BoardDatabase
 from ..settings import InterfaceSettings
-from ..util import find_katapult, find_klipper, file_sha256, check_can_host_state, fix_can_host_state, stop_services
+from ..util import find_katapult, find_klipper, file_sha256, stop_services
 from ..session import save_session, clear_session, SessionData
 from .. import device as device_mod
 from .. import flash as flash_mod
@@ -92,81 +92,14 @@ class FlashFlowMixin:
         chosen_if_type = None
 
         if session is None:
-            while True:
-                board = await self.select_board()
-                if not board:
-                    return
-                ifaces = board.interfaces if hasattr(board, "interfaces") else []
-                ifaces = sorted(ifaces, key=lambda i: i.if_type)
-                if len(ifaces) > 1:
-                    tag = await self.menu(
-                        choices=[(str(i), if_.pretty()) for i, if_ in enumerate(ifaces)],
-                        message="This board supports multiple interfaces. Which interface do you want to use?",
-                        cancel_label="Back",
-                    )
-                    if tag is None:
-                        # Back to board selection, not out of the flash
-                        # flow entirely — mirrors select_board()'s own
-                        # step-back behavior instead of dropping the user
-                        # back at the main menu.
-                        continue
-                    chosen_if_type = ifaces[int(tag)].if_type
-                else:
-                    chosen_if_type = ifaces[0].if_type if ifaces else None
-
-                if chosen_if_type in ("CAN", "USB to CAN Bridge"):
-                    can_settings = InterfaceSettings()
-                    problems = await asyncio.to_thread(check_can_host_state, can_settings.can_speed)
-                    if problems:
-                        problem_list = "\n".join(f"  - {p}" for p in problems)
-                        fix_now = await self.yesno(
-                            f"Found issues with the host's CAN networking setup:\n\n{problem_list}\n\n"
-                            "Fix these now? (sudo password may be required)\n\n"
-                            "You can still flash without fixing these — useful if this board "
-                            "belongs to a different CAN network/printer than the host is "
-                            "currently configured for.",
-                            yes_label="Fix",
-                            no_label="Flash anyway",
-                            default_no=True,
-                        )
-                        if fix_now:
-                            try:
-                                with self.suspend():
-                                    print("\nApplying host CAN networking changes — you may be prompted for your sudo password below.\n")
-                                    fix_can_host_state(can_settings.can_speed)
-                                await self.msgbox("Host CAN networking has been updated.", title="CAN host state")
-                            except Exception as e:
-                                await self.msgbox(f"Failed to fix host CAN networking:\n\n{e}", title="CAN host state")
-
-                # Confirmation step: show the full board summary (including
-                # its interface list) plus the interface just chosen, and
-                # let the user either proceed or go back and pick again
-                # before we commit to a session / start compiling anything.
-                # Rendered as buttons (not a scrollable list) since it's
-                # just two fixed, equally-weighted choices; no separate
-                # Cancel button — Escape still backs all the way out.
-                iface_label = chosen_if_type or "(none available)"
-                speed_line = ""
-                if chosen_if_type and chosen_if_type in ("CAN", "USB to CAN Bridge"):
-                    speed_line = f"\nCAN bit rate: {InterfaceSettings().can_speed} bps"
-                elif chosen_if_type and chosen_if_type == "UART":
-                    speed_line = f"\nUART baud rate: {InterfaceSettings().uart_baudrate} baud"
-                summary = f"{board.pretty()}\nSelected interface: {iface_label}{speed_line}\n"
-                tag = await self.button_menu(
-                    choices=[("begin", "Begin Flash")],
-                    message=summary,
-                    title="Confirm Board & Interface",
-                    cancel_label="Back",
-                )
-                if tag == "begin":
-                    break
-                else:
-                    # "reselect" or Escape/Back (tag is None) both mean the
-                    # same thing here: go back to reselecting board/
-                    # interface rather than abandoning the flash flow
-                    # entirely, mirroring the step-back convention used
-                    # everywhere else in this wizard.
-                    continue
+            # Board/interface selection + confirmation lives in app.py
+            # (select_board_and_interface()) — it's menu navigation with no
+            # hardware or build involvement, not part of the actual flash
+            # flow this file orchestrates.
+            result = await self.select_board_and_interface()
+            if result is None:
+                return
+            board, chosen_if_type = result
 
             # Capture the currently-configured speed for this interface
             # into the session now — so a resumed session (e.g. after a
