@@ -1449,6 +1449,40 @@
       }
     },
     "BigTreeTech":{
+      "Eddy": {
+        "Eddy USB": {
+          "documentation": "https://github.com/bigtreetech/Eddy",
+          "mcu": {
+            "instructions": {
+              "bootrom_entry": "Press and hold the BOOT button and then connect the USB cable to place the board in bootrom mode."
+            },
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "Generic_03H with CLKDIV 4"
+          },
+
+          "usb": {},
+          "status": "gpio7"
+        },
+        "Eddy Duo": {
+          "documentation": "https://github.com/bigtreetech/Eddy",
+          "mcu": {
+            "instructions": {
+              "bootrom_entry": "Move the CAN/USB switch to the USB position.\n\nPress and hold the BOOT button at the top and then connect the USB cable to place the board in bootrom mode.",
+              "post_bootloader": "If using the Eddy Duo in CAN mode, disconnect the USB cable, move the switches to the CAN position, power off the printer and then connect the Eddy Duo to the printer."
+            },
+            "architecture": "Raspberry Pi RP2040",
+            "mcu": "rp2040",
+            "flash": "Generic_03H with CLKDIV 4"
+          },
+          "can": {
+            "can_rx": "gpio4",
+            "can_tx": "gpio5"
+          },
+          "usb": {},
+          "status": "gpio7"
+        }
+      },
       "MMB Cubic": {
         "MMB Cubic v1.0": {
           "documentation": "https://github.com/bigtreetech/MMB-Cubic",
