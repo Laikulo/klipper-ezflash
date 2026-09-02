@@ -325,6 +325,43 @@
       }
     },
     "Fysetc": {
+      "Spider King": {
+        "Spider King v1.0": {
+          "documentation": "https://wiki.fysetc.com/docs/FYSETCSPIDERKING",
+          "instructions": {
+            "bootrom_entry": "First power off the board and then make sure there is no jumper on the USB-5V header. \n\nPlace jumper on the BT0 and 3V3 pins. Then power on the board."
+          },
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F407",
+            "clock": "8MHz"
+          },
+          "CAN_Bridge": {
+            "can_rx": "PB8",
+            "can_tx": "PB9"
+          },
+          "usb": "PA11/PA12"
+        }
+      },
+      "Spider Pro": {
+        "Spider Pro v1.0": {
+          "documentation": "https://wiki.fysetc.com/docs/How-to-update-the-Spider-Pro",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32H723",
+            "clock": "25MHz"
+          },
+          "CAN_Bridge": {
+            "can_rx": "PD0",
+            "can_tx": "PD1"
+          },
+          "usb": "PA11/PA12",
+          "status": "PA1"
+        }
+      },
       "Spider": {
         "Spider v1.0": {
           "documentation": "https://github.com/FYSETC/FYSETC-SPIDER",
