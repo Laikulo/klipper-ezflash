@@ -1728,14 +1728,14 @@
           "documentation": "https://github.com/VoronDesign/Voron-Hardware/tree/master/Klipper_Expander",
           "instructions": {
             "bootrom_entry": "Install the jumper on the boot header and then press and release the reset button to place the board in bootrom mode.",
-            "post_bootloader": "Please remove the BOOT jumper now."
+            "post_bootloader": "Please remove the BOOT jumper now and press the reset button."
           },
           "mcu": {
             "architecture": "STMicroelectronics STM32",
             "mcu": "STM32F042",
             "clock": "INTERNAL"
           },
-          "usb": "PA11/PA12",
+          "usb": "PA9/PA10",
           "status": "PA4",
           "optional_features":["WANT_BUTTONS", "WANT_NEOPIXEL", "WANT_PULSE_COUNTER", "WANT_ST7920", "WANT_HD44780", "WANT_ADC", "WANT_SPI", "WANT_SOFTWARE_SPI", "WANT_I2C", "WANT_HARD_PWM"]
         }
