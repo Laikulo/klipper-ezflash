@@ -31,21 +31,14 @@ from ..fault import EZFException, AmbiguousCanUuidException
 from .flash_screen import FlashFlowScreen, CompletionScreen, StepStatus, _capture_output_to_log
 
 
-def _build_mcu_snippet(*, klipper_serial: Optional[str] = None, uart_serial: Optional[str] = None, can_uuid: Optional[str] = None, katapult_serial: Optional[str] = None) -> Optional[str]:
-    """Build a ready-to-paste printer.cfg [mcu] snippet for this flash session.
-
-    `katapult_serial`, when available, is included as a comment above the
-    serial:/canbus_uuid: line — the katapult (bootloader-mode) path is
-    what future update_klipper_and_mcus-style re-flashes will need, and
-    it's otherwise not shown anywhere in the final printer.cfg.
-    """
-    comment = f"# katapult path for updating {katapult_serial}\n" if katapult_serial else ""
+def _build_mcu_snippet(*, klipper_serial: Optional[str] = None, uart_serial: Optional[str] = None, can_uuid: Optional[str] = None) -> Optional[str]:
+    """Build a ready-to-paste printer.cfg [mcu] snippet for this flash session."""
     if can_uuid:
-        return f"[mcu]\n{comment}canbus_uuid: {can_uuid}"
+        return f"[mcu]\ncanbus_uuid: {can_uuid}"
     if uart_serial:
-        return f"[mcu]\n{comment}serial: {uart_serial}"
+        return f"[mcu]\nserial: {uart_serial}"
     if klipper_serial:
-        return f"[mcu]\n{comment}serial: {klipper_serial}"
+        return f"[mcu]\nserial: {klipper_serial}"
     return None
 
 
@@ -166,7 +159,6 @@ class FlashFlowMixin:
         known_klipper_devs: Optional[list] = None
         known_can_ifaces: Optional[list] = None
         detected_can_iface: Optional[str] = None
-        katapult_serial_path: Optional[str] = None
         uart_port: Optional[str] = None
         try:
             while True:
@@ -728,7 +720,7 @@ class FlashFlowMixin:
                     warning_lines = []
                     if is_canbridge:
                         if can_uid:
-                            config_snippet = _build_mcu_snippet(can_uuid=can_uid, katapult_serial=katapult_serial_path)
+                            config_snippet = _build_mcu_snippet(can_uuid=can_uid)
                     elif is_can_only:
                         if can_uid:
                             config_snippet = _build_mcu_snippet(can_uuid=can_uid)
@@ -752,7 +744,7 @@ class FlashFlowMixin:
                                 )
                     else:
                         if klipper_path:
-                            config_snippet = _build_mcu_snippet(klipper_serial=klipper_path, katapult_serial=katapult_serial_path)
+                            config_snippet = _build_mcu_snippet(klipper_serial=klipper_path)
 
                     final_parts = ["Flash flow completed successfully."]
                     if config_snippet:
