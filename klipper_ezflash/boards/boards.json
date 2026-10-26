@@ -1762,6 +1762,25 @@
         }
       }
     },
+    "Vano3dla": {
+      "Single Lane Board for EMU": {
+        "Single Lane Board for EMU": {
+          "documentation": "https://github.com/kashine6/SLB-Board-For-EMU",
+          "instructions": {
+            "bootrom_entry": "Install the VUSB jumper, connect the board to the SBC with a USB cable, then press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second.",
+            "post_bootloader": "Please disconnect the USB cable, power off the printer, remove the VUSB jumper and then connect the toolhead board to the power and CAN cable.\n\nThe app should resume the flash flow on relaunch."
+          },
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "stm32g0b1",
+            "clock": "8MHz"
+          },
+          "can": "PB8/PB9",
+          "usb": "PA11/PA12",
+          "status": "PC13"
+        }
+      }
+    },
     "Voron Design": {
       "Klipper Expander": {
         "Klipper Expander": {
