@@ -1686,6 +1686,24 @@
         }
       }
     },
+    "LDO": {
+      "Amplify Standalone": {
+        "Amplify Standalone": {
+          "documentation": "https://github.com/EllaFoxo/Amplify-Hotend",
+          "instructions": {
+            "bootrom_entry": "Press and hold the BOOT button, then press and release the RESET button. Release the BOOT button after 1 second."
+          },
+          "mcu": {
+            "architecture": "STMicroelectronics STM32",
+            "mcu": "STM32F042",
+            "clock": "8MHz"
+          },
+          "usb": "PA9/PA10",
+          "status": "!PB7",
+          "optional_features": ["WANT_SPI", "WANT_SOFTWARE_SPI", "WANT_ADS1220", "WANT_TRIGGER_ANALOG"]
+        }
+      }
+    },
     "Provok3d": {
       "Therm^2": {
         "Therm^2": {
