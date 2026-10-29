@@ -17,6 +17,18 @@
             "boot_method": {
               "type": "string"
             },
+            "instructions": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "bootrom_entry": {
+                  "type": "string"
+                },
+                "post_bootloader": {
+                  "type": "string"
+                }
+              }
+            },
             "documentation": {
               "type": "string"
             },
@@ -133,6 +145,9 @@
               ]
             },
             "status": {
+              "type": "string"
+            },
+            "startup_pins": {
               "type": "string"
             },
             "uart": {
