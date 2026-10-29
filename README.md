@@ -59,13 +59,13 @@ Besides the user, creates and interacts with a Configurator instance to generate
 
 May also launch builds in the klipper source tree, or may farm that out to a future component.
 
-### Configurator (`board2kconf/configurator.py`)
+### Configurator (`klipper_ezflash/configurator.py`)
 Given a board config and klipper instance, uses `kconfiglib` (the same as upstream klipper) to make selections
 as a user would. Typically used to generate a `.config`
 
 This should be the __only__ part of the codebase that interacts with the kconfig wrapper
 
-### Kconfig Wrapper (`board2kconf/kconfig.py`)
+### Kconfig Wrapper (`klipper_ezflash/kconfig.py`)
 Wraps kconfiglib primitives in a more friendly interface.
 
 This should be the __only__ part of the codebase that interacts with `kconfiglib`
