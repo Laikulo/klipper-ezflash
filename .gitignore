@@ -6,3 +6,6 @@ __pycache__
 
 # Editors
 *.swp
+
+# MacOS
+.DS_Store
