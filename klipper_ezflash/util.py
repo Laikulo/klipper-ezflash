@@ -31,7 +31,7 @@ def get_boards():
         else:
             raise ValueError("Specified KBOARD_BOARDS_PATH does not exist")
     try:
-        return files("board2kconf.data").joinpath("boards.json").open("r")
+        return files("klipper_ezflash.boards").joinpath("boards.json").open("r")
     except (FileNotFoundError, ModuleNotFoundError):
         pass
     # Try other options here

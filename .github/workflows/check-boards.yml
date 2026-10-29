@@ -13,7 +13,7 @@ jobs:
           sudo apt-get -y install python3-jsonschema
       - name: check schema
         run:
-          jsonschema -i "$GITHUB_WORKSPACE/boards/boards.json" "$GITHUB_WORKSPACE/boards/boards.schema.json"
+          jsonschema -i "$GITHUB_WORKSPACE/klipper_ezflash/boards/boards.json" "$GITHUB_WORKSPACE/klipper_ezflash/boards/v1.schema.json"
   verify:
     name: Verify config viability
     runs-on: ubuntu-slim

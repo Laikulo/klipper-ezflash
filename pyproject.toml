@@ -17,12 +17,12 @@ dependencies = [
 [tool.setuptools_scm]
 
 [tool.setuptools.packages.find]
-include = ["board2kconf", "board2kconf.*"]
+include = ["klipper_ezflash", "klipper_ezflash.*"]
 
 [tool.setuptools.package-data]
-"board2kconf.data" = [ "*.json" ]
+"klipper_ezflash.boards" = [ "*.json" ]
 
 [project.scripts]
-"check_kboards" = "board2kconf.scripts.test_all_boards:main"
-"ezf" = "board2kconf.__main__:main"
-"ezflash" = "board2kconf.__main__:main"
+"check_kboards" = "klipper_ezflash.scripts.test_all_boards:main"
+"ezf" = "klipper_ezflash.__main__:main"
+"ezflash" = "klipper_ezflash.__main__:main"

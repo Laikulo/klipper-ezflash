@@ -2,8 +2,8 @@ import logging
 from pathlib import Path
 from pprint import pprint as pp
 
-from board2kconf.configurator import Configurator
-from board2kconf.model import BoardDatabase
+from klipper_ezflash.configurator import Configurator
+from klipper_ezflash.model import BoardDatabase
 from .util import find_klipper
 from .ui import UI
 
