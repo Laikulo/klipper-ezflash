@@ -13,6 +13,7 @@ dependencies = [
     'kconfiglib-klipper',
     'jsonschema',
     'pythondialog',
+    'textual',
     'watchdog',
 ]
 
