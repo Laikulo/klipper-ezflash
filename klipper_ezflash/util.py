@@ -6,7 +6,29 @@ from importlib.resources import files
 
 from typing import Collection, Any
 
+_COMMON_KATAPULT_LOCATIONS = ["~/katapult", "~/Katapult", "/usr/src/katapult"]
 _COMMON_KLIPPER_LOCATIONS = ["~/klipper", "~/Klipper", "/usr/src/klipper"]
+
+
+@cache
+def find_katapult():
+    """Find the katapult checkout on the system.
+
+    Returns a Path to the katapult directory if found, or None if not present.
+    Katapult is used for flashing Klipper bootloaders and is required for certain board operations.
+    """
+    if override_path := os.environ.get("KBOARD_KATAPULT_PATH"):
+        path = Path(override_path)
+        if path.exists():
+            return path
+        else:
+            raise ValueError("Specified KBOARD_KATAPULT_PATH does not exist")
+    for location in _COMMON_KATAPULT_LOCATIONS:
+        path = Path(location).expanduser()
+        # Check if it's a valid katapult checkout (has the repo's .git directory)
+        if path.exists() and (path / ".git").exists():
+            return path
+    return None
 
 
 @cache
