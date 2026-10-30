@@ -1,20 +1,28 @@
 import logging
-from pathlib import Path
-from pprint import pprint as pp
 
-from klipper_ezflash.configurator import Configurator
-from klipper_ezflash.model import BoardDatabase
-from .util import find_klipper
-from .ui import UI
+from textual.logging import TextualHandler
 
-logger = logging.getLogger("klipper-mcu-configs")
+from .ui.app import main as ui
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
-
-    ui = UI()
-    ui.launch()
+    # TextualHandler routes log records to Textual's devtools console
+    # (`textual console`, connected separately) instead of writing them
+    # straight to stdout. Without this, any logger.info()/warning() call
+    # anywhere in the codebase — e.g. model.py's board-loading messages —
+    # prints directly onto the raw terminal underneath Textual's
+    # rendering, corrupting the screen. force=True ensures this wins even
+    # if some other module already called logging.basicConfig() first
+    # (basicConfig is a no-op on subsequent calls unless forced).
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[TextualHandler()],
+        force=True,
+    )
+    # EZFlashApp.launch() already checks for a previous session and offers
+    # to resume it before showing the main menu, so no pre-launch resume
+    # logic is needed here.
+    ui()
 
 
 if __name__ == "__main__":
